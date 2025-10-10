@@ -1,0 +1,125 @@
+{
+  "generated_at": "2025-10-10T19:44:35.598214Z",
+  "summary": [
+    {
+      "city": "San Francisco",
+      "count": 346
+    },
+    {
+      "city": "Palo Alto",
+      "count": 24
+    },
+    {
+      "city": "Stanford",
+      "count": 21
+    },
+    {
+      "city": "Mountain View",
+      "count": 18
+    },
+    {
+      "city": "Berkeley",
+      "count": 13
+    },
+    {
+      "city": "San Jose",
+      "count": 12
+    },
+    {
+      "city": "Santa Clara",
+      "count": 8
+    },
+    {
+      "city": "Oakland",
+      "count": 8
+    },
+    {
+      "city": "Menlo Park",
+      "count": 7
+    },
+    {
+      "city": "San Carlos",
+      "count": 4
+    },
+    {
+      "city": "Dublin",
+      "count": 3
+    },
+    {
+      "city": "Sunnyvale",
+      "count": 3
+    },
+    {
+      "city": "Los Altos",
+      "count": 3
+    },
+    {
+      "city": "Redwood City",
+      "count": 2
+    },
+    {
+      "city": "Los Gatos",
+      "count": 2
+    },
+    {
+      "city": "Fremont",
+      "count": 2
+    },
+    {
+      "city": "Pleasanton",
+      "count": 2
+    },
+    {
+      "city": "Burlingame",
+      "count": 2
+    },
+    {
+      "city": "Milpitas",
+      "count": 2
+    },
+    {
+      "city": "San Mateo",
+      "count": 2
+    },
+    {
+      "city": "San Gregorio",
+      "count": 1
+    },
+    {
+      "city": "Sausalito",
+      "count": 1
+    },
+    {
+      "city": "Santa Cruz",
+      "count": 1
+    },
+    {
+      "city": "South San Francisco",
+      "count": 1
+    },
+    {
+      "city": "Saratoga",
+      "count": 1
+    },
+    {
+      "city": "Richmond",
+      "count": 1
+    },
+    {
+      "city": "MOFFETT FIELD",
+      "count": 1
+    },
+    {
+      "city": "San Ramon",
+      "count": 1
+    },
+    {
+      "city": "Walnut Creek",
+      "count": 1
+    },
+    {
+      "city": "Danville",
+      "count": 1
+    }
+  ]
+}

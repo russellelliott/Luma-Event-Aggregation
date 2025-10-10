@@ -38,3 +38,21 @@ https://github.com/copilot/c/7d08c886-2a01-470b-b89e-348a9169d863
 Distance from your location to city
 https://chatgpt.com/c/68e95cbc-9aa0-8328-8b6a-db7e227872d9
 
+## Aggregating and summarizing events
+
+A new helper script `aggregate_events.py` will combine all JSON files in `fetchedEvents/`, sort events by `start_at`, extract city names and write two outputs:
+
+- `fetchedEvents/combined_events.json` — combined list of all events sorted by start time
+- `fetchedEvents/city_summary.json` — counts per city and (optionally) Google Maps distance/time data
+
+Quick start (zsh):
+
+```bash
+python3 -m pip install -r requirements.txt
+# optionally set your Google Maps API key to enable distance/time lookups
+export GOOGLE_MAPS_API_KEY="YOUR_KEY_HERE"
+python3 aggregate_events.py
+```
+
+If `GOOGLE_MAPS_API_KEY` is not set, the script will still produce the combined and city count outputs but skip remote distance queries.
+
