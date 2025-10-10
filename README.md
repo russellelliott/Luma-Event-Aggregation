@@ -56,3 +56,10 @@ python3 aggregate_events.py
 
 If `GOOGLE_MAPS_API_KEY` is not set, the script will still produce the combined and city count outputs but skip remote distance queries.
 
+
+
+figuring out filters
+https://www.perplexity.ai/search/for-this-repo-how-would-you-su-dPljCyGCRS6GJ9larrrKcw
+
+firebase upload files to web (should i make this as a public app? i feel there would be lots of redundant data if we use this hardcoded stuff)
+https://firebase.google.com/docs/storage/web/upload-files
