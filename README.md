@@ -30,3 +30,11 @@ Fetching events from these calendars:
 * https://luma.com/sf-developer-events (endpoint doesn't work)
 * https://luma.com/genai-sf (endpoint doesn't work)
 * https://luma.com/sf
+
+
+
+https://github.com/copilot/c/7d08c886-2a01-470b-b89e-348a9169d863
+
+Distance from your location to city
+https://chatgpt.com/c/68e95cbc-9aa0-8328-8b6a-db7e227872d9
+
