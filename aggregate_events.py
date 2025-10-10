@@ -7,14 +7,14 @@ Produces:
 
 Usage:
   - Ensure you have Python 3.8+ and install requirements from requirements.txt
-  - Set GOOGLE_MAPS_API_KEY in your environment if you want distance/time lookups.
-    Example (zsh):
-      export GOOGLE_MAPS_API_KEY="YOUR_KEY_HERE"
+  - Set GOOGLE_MAPS_API_KEY in your .env file
+    Example:
+      GOOGLE_MAPS_API_KEY=YOUR_KEY_HERE
 
   - Run:
       python3 aggregate_events.py
 
-The script will not attempt Google Maps calls unless GOOGLE_MAPS_API_KEY is present.
+The script will load the .env file automatically and use the API key.
 """
 
 import os
@@ -24,7 +24,10 @@ from datetime import datetime
 from collections import Counter
 import requests
 import googlemaps
+from dotenv import load_dotenv
 
+# Load environment variables from .env file
+load_dotenv()
 
 EVENTS_DIR = Path(__file__).resolve().parent / "fetchedEvents"
 # write outputs to a separate folder (aggregatedEvents) as requested
@@ -69,28 +72,40 @@ def get_start_at(item):
 
 
 def extract_city(item):
+    """Extract city name, preferring city_state format for better Google Maps accuracy."""
     ev = item.get("event", {})
     geo = ev.get("geo_address_info", {}) if isinstance(ev.get("geo_address_info", {}), dict) else {}
 
-    # Prefer explicit city field
-    city = geo.get("city")
-    if city:
-        return city
-
-    # Fallback to city_state like "San Francisco, California"
+    # PREFER city_state like "San Francisco, California" for better Google Maps accuracy
     city_state = geo.get("city_state")
-    if city_state and "," in city_state:
-        return city_state.split(",")[0].strip()
+    if city_state:
+        return city_state
 
-    # Fallback to calendar geo_city
+    # Fallback to calendar geo_city with state if available
     cal_city = item.get("calendar", {}).get("geo_city")
+    cal_region = item.get("calendar", {}).get("geo_region_abbrev") or item.get("calendar", {}).get("geo_region")
+    if cal_city and cal_region:
+        return f"{cal_city}, {cal_region}"
     if cal_city:
         return cal_city
+
+    # Fallback to explicit city field (but this lacks state info)
+    city = geo.get("city")
+    if city:
+        # Try to add state if available
+        state = geo.get("region") or geo.get("region_abbrev")
+        if state:
+            return f"{city}, {state}"
+        return city
 
     # last resort: try to extract from full_address
     full = geo.get("full_address")
     if full and "," in full:
-        return full.split(",")[0].strip()
+        # Try to get "City, State" from full address
+        parts = [p.strip() for p in full.split(",")]
+        if len(parts) >= 2:
+            return f"{parts[0]}, {parts[1]}"
+        return parts[0]
 
     return "Unknown"
 
@@ -110,10 +125,12 @@ def combine_and_sort(events):
 
 def get_user_location():
     try:
+        print("Detecting your location from IP...")
         ipinfo = requests.get("https://ipinfo.io").json()
         loc = ipinfo.get("loc")
         if loc:
-            print("Detected your coordinates from IP:", loc)
+            print(f"✓ Detected your coordinates: {loc}")
+            print(f"  City: {ipinfo.get('city', 'Unknown')}, {ipinfo.get('region', 'Unknown')}")
             return loc
     except Exception as e:
         print("Could not determine location from IP (ipinfo):", e)
@@ -123,10 +140,12 @@ def get_user_location():
 def query_google_for_cities(cities, your_location, api_key):
     # Use googlemaps client to get distance matrix results. This function assumes
     # the `googlemaps` package is importable (per your instruction not to change the import).
+    print(f"\nQuerying Google Maps for {len(cities)} cities...")
     client = googlemaps.Client(key=api_key)
     from datetime import datetime as _dt
     results = {}
-    for city in cities:
+    for i, city in enumerate(cities, 1):
+        print(f"  [{i}/{len(cities)}] Querying: {city}", end="")
         try:
             res = client.distance_matrix(origins=[your_location], destinations=[city], mode="driving", departure_time=_dt.now())
             elem = res.get("rows", [])[0].get("elements", [])[0]
@@ -148,9 +167,11 @@ def query_google_for_cities(cities, your_location, api_key):
                     duration_minutes = round(duration_value / 60, 1) if duration_value is not None else None
                 except Exception:
                     duration_minutes = None
+                print(f" ✓ {distance_miles} mi, {duration_minutes} min")
             else:
                 distance_text = duration_text = None
                 distance_value = distance_miles = duration_value = duration_minutes = None
+                print(f" ✗ Status: {status}")
 
             results[city] = {
                 "status": status,
@@ -162,13 +183,17 @@ def query_google_for_cities(cities, your_location, api_key):
                 "duration_minutes": duration_minutes,
             }
         except Exception as e:
-            print(f"Google API error for city '{city}':", e)
+            print(f" ✗ Error: {e}")
             results[city] = {"status": "ERROR", "error": str(e)}
 
     return results
 
 
 def main():
+    print("=" * 70)
+    print("Aggregating Luma Events")
+    print("=" * 70)
+    
     events = load_events(EVENTS_DIR)
     sorted_events = combine_and_sort(events)
 
@@ -176,7 +201,7 @@ def main():
     try:
         with COMBINED_OUT.open("w") as f:
             json.dump(sorted_events, f, default=str, indent=2)
-        print(f"Wrote combined sorted events to {COMBINED_OUT} ({len(sorted_events)} events)")
+        print(f"\n✓ Wrote combined sorted events to {COMBINED_OUT} ({len(sorted_events)} events)")
     except Exception as e:
         print("Failed to write combined events:", e)
 
@@ -185,14 +210,27 @@ def main():
     counts = Counter(cities)
 
     summary = []
+    # include distance and travel time fields (filled when Google results are available)
     for city, cnt in counts.most_common():
-        summary.append({"city": city, "count": cnt})
+        summary.append({
+            "city": city,
+            "count": cnt,
+            # top-level fields required by the user: distance in miles and travel time in minutes
+            "distance_miles": None,
+            "travel_time_minutes": None,
+        })
 
     # Optionally get distances/times using Google Maps if API key present
     api_key = os.environ.get("GOOGLE_MAPS_API_KEY")
     user_loc = None
     google_results = {}
-    if api_key:
+    
+    if not api_key:
+        print("\n⚠ Warning: GOOGLE_MAPS_API_KEY not found in environment")
+        print("  Distance and travel time will not be calculated")
+        print("  Make sure your .env file contains: GOOGLE_MAPS_API_KEY=your_key_here")
+    else:
+        print(f"\n✓ Found Google Maps API key: {api_key[:10]}...")
         user_loc = get_user_location()
         if not user_loc:
             print("Warning: could not detect user location from IP; skipping Google queries")
@@ -200,18 +238,37 @@ def main():
             city_names = [s["city"] for s in summary if s["city"] != "Unknown"]
             google_results = query_google_for_cities(city_names, user_loc, api_key)
 
-    # attach google results to summary
+    # attach google results to summary: populate top-level distance_miles and travel_time_minutes
     for item in summary:
         city = item["city"]
         if city in google_results:
-            item.update({"google": google_results[city]})
+            res = google_results[city]
+            # keep the original google object for debugging/diagnostics
+            item["google"] = res
+            # fill the required top-level fields if available
+            if isinstance(res, dict):
+                # distance_miles and duration_minutes were computed in query_google_for_cities
+                if res.get("distance_miles") is not None:
+                    item["distance_miles"] = res.get("distance_miles")
+                if res.get("duration_minutes") is not None:
+                    # normalize name to travel_time_minutes per user's request
+                    item["travel_time_minutes"] = res.get("duration_minutes")
 
     try:
         with CITY_SUMMARY_OUT.open("w") as f:
             json.dump({"generated_at": datetime.utcnow().isoformat() + "Z", "summary": summary}, f, indent=2)
-        print(f"Wrote city summary to {CITY_SUMMARY_OUT} ({len(summary)} cities)")
+        print(f"\n✓ Wrote city summary to {CITY_SUMMARY_OUT} ({len(summary)} cities)")
+        
+        # Print summary of what was calculated
+        with_distance = sum(1 for s in summary if s["distance_miles"] is not None)
+        print(f"  - {with_distance}/{len(summary)} cities have distance/time data")
+        
     except Exception as e:
         print("Failed to write city summary:", e)
+    
+    print("\n" + "=" * 70)
+    print("Done!")
+    print("=" * 70)
 
 
 if __name__ == "__main__":

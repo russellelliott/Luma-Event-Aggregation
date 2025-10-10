@@ -1,125 +1,455 @@
 {
-  "generated_at": "2025-10-10T19:44:35.598214Z",
+  "generated_at": "2025-10-10T19:53:43.244052Z",
   "summary": [
     {
-      "city": "San Francisco",
-      "count": 346
+      "city": "San Francisco, California",
+      "count": 346,
+      "distance_miles": 75.78,
+      "travel_time_minutes": 80.2,
+      "google": {
+        "status": "OK",
+        "distance_text": "122 km",
+        "distance_meters": 121954,
+        "distance_miles": 75.78,
+        "duration_text": "1 hour 20 mins",
+        "duration_seconds": 4813,
+        "duration_minutes": 80.2
+      }
     },
     {
-      "city": "Palo Alto",
-      "count": 24
+      "city": "Palo Alto, California",
+      "count": 24,
+      "distance_miles": 42.52,
+      "travel_time_minutes": 48.2,
+      "google": {
+        "status": "OK",
+        "distance_text": "68.4 km",
+        "distance_meters": 68426,
+        "distance_miles": 42.52,
+        "duration_text": "48 mins",
+        "duration_seconds": 2894,
+        "duration_minutes": 48.2
+      }
     },
     {
-      "city": "Stanford",
-      "count": 21
+      "city": "Stanford, California",
+      "count": 21,
+      "distance_miles": 42.33,
+      "travel_time_minutes": 50.0,
+      "google": {
+        "status": "OK",
+        "distance_text": "68.1 km",
+        "distance_meters": 68130,
+        "distance_miles": 42.33,
+        "duration_text": "50 mins",
+        "duration_seconds": 2998,
+        "duration_minutes": 50.0
+      }
     },
     {
-      "city": "Mountain View",
-      "count": 18
+      "city": "Mountain View, California",
+      "count": 18,
+      "distance_miles": 36.77,
+      "travel_time_minutes": 43.3,
+      "google": {
+        "status": "OK",
+        "distance_text": "59.2 km",
+        "distance_meters": 59178,
+        "distance_miles": 36.77,
+        "duration_text": "43 mins",
+        "duration_seconds": 2598,
+        "duration_minutes": 43.3
+      }
     },
     {
-      "city": "Berkeley",
-      "count": 13
+      "city": "Berkeley, California",
+      "count": 13,
+      "distance_miles": 75.27,
+      "travel_time_minutes": 84.5,
+      "google": {
+        "status": "OK",
+        "distance_text": "121 km",
+        "distance_meters": 121131,
+        "distance_miles": 75.27,
+        "duration_text": "1 hour 25 mins",
+        "duration_seconds": 5071,
+        "duration_minutes": 84.5
+      }
     },
     {
-      "city": "San Jose",
-      "count": 12
+      "city": "San Jose, California",
+      "count": 12,
+      "distance_miles": 32.2,
+      "travel_time_minutes": 40.3,
+      "google": {
+        "status": "OK",
+        "distance_text": "51.8 km",
+        "distance_meters": 51828,
+        "distance_miles": 32.2,
+        "duration_text": "40 mins",
+        "duration_seconds": 2419,
+        "duration_minutes": 40.3
+      }
     },
     {
-      "city": "Santa Clara",
-      "count": 8
+      "city": "Santa Clara, California",
+      "count": 8,
+      "distance_miles": 31.49,
+      "travel_time_minutes": 39.6,
+      "google": {
+        "status": "OK",
+        "distance_text": "50.7 km",
+        "distance_meters": 50671,
+        "distance_miles": 31.49,
+        "duration_text": "40 mins",
+        "duration_seconds": 2375,
+        "duration_minutes": 39.6
+      }
     },
     {
-      "city": "Oakland",
-      "count": 8
+      "city": "Oakland, California",
+      "count": 8,
+      "distance_miles": 70.2,
+      "travel_time_minutes": 75.7,
+      "google": {
+        "status": "OK",
+        "distance_text": "113 km",
+        "distance_meters": 112973,
+        "distance_miles": 70.2,
+        "duration_text": "1 hour 16 mins",
+        "duration_seconds": 4539,
+        "duration_minutes": 75.7
+      }
     },
     {
-      "city": "Menlo Park",
-      "count": 7
+      "city": "Menlo Park, California",
+      "count": 7,
+      "distance_miles": 45.89,
+      "travel_time_minutes": 55.5,
+      "google": {
+        "status": "OK",
+        "distance_text": "73.9 km",
+        "distance_meters": 73860,
+        "distance_miles": 45.89,
+        "duration_text": "55 mins",
+        "duration_seconds": 3327,
+        "duration_minutes": 55.5
+      }
     },
     {
-      "city": "San Carlos",
-      "count": 4
+      "city": "San Carlos, California",
+      "count": 4,
+      "distance_miles": 50.7,
+      "travel_time_minutes": 56.3,
+      "google": {
+        "status": "OK",
+        "distance_text": "81.6 km",
+        "distance_meters": 81597,
+        "distance_miles": 50.7,
+        "duration_text": "56 mins",
+        "duration_seconds": 3378,
+        "duration_minutes": 56.3
+      }
     },
     {
-      "city": "Dublin",
-      "count": 3
+      "city": "Dublin, California",
+      "count": 3,
+      "distance_miles": 64.05,
+      "travel_time_minutes": 66.4,
+      "google": {
+        "status": "OK",
+        "distance_text": "103 km",
+        "distance_meters": 103086,
+        "distance_miles": 64.05,
+        "duration_text": "1 hour 6 mins",
+        "duration_seconds": 3984,
+        "duration_minutes": 66.4
+      }
     },
     {
-      "city": "Sunnyvale",
-      "count": 3
+      "city": "Sunnyvale, California",
+      "count": 3,
+      "distance_miles": 35.53,
+      "travel_time_minutes": 43.9,
+      "google": {
+        "status": "OK",
+        "distance_text": "57.2 km",
+        "distance_meters": 57177,
+        "distance_miles": 35.53,
+        "duration_text": "44 mins",
+        "duration_seconds": 2634,
+        "duration_minutes": 43.9
+      }
     },
     {
-      "city": "Los Altos",
-      "count": 3
+      "city": "Los Altos, California",
+      "count": 3,
+      "distance_miles": 37.6,
+      "travel_time_minutes": 43.6,
+      "google": {
+        "status": "OK",
+        "distance_text": "60.5 km",
+        "distance_meters": 60506,
+        "distance_miles": 37.6,
+        "duration_text": "44 mins",
+        "duration_seconds": 2615,
+        "duration_minutes": 43.6
+      }
     },
     {
-      "city": "Redwood City",
-      "count": 2
+      "city": "Redwood City, California",
+      "count": 2,
+      "distance_miles": 49.91,
+      "travel_time_minutes": 57.7,
+      "google": {
+        "status": "OK",
+        "distance_text": "80.3 km",
+        "distance_meters": 80320,
+        "distance_miles": 49.91,
+        "duration_text": "58 mins",
+        "duration_seconds": 3462,
+        "duration_minutes": 57.7
+      }
     },
     {
-      "city": "Los Gatos",
-      "count": 2
+      "city": "Los Gatos, California",
+      "count": 2,
+      "distance_miles": 22.45,
+      "travel_time_minutes": 30.0,
+      "google": {
+        "status": "OK",
+        "distance_text": "36.1 km",
+        "distance_meters": 36131,
+        "distance_miles": 22.45,
+        "duration_text": "30 mins",
+        "duration_seconds": 1802,
+        "duration_minutes": 30.0
+      }
     },
     {
-      "city": "Fremont",
-      "count": 2
+      "city": "Fremont, California",
+      "count": 2,
+      "distance_miles": 46.88,
+      "travel_time_minutes": 53.2,
+      "google": {
+        "status": "OK",
+        "distance_text": "75.4 km",
+        "distance_meters": 75442,
+        "distance_miles": 46.88,
+        "duration_text": "53 mins",
+        "duration_seconds": 3194,
+        "duration_minutes": 53.2
+      }
     },
     {
-      "city": "Pleasanton",
-      "count": 2
+      "city": "Pleasanton, California",
+      "count": 2,
+      "distance_miles": 59.75,
+      "travel_time_minutes": 64.3,
+      "google": {
+        "status": "OK",
+        "distance_text": "96.2 km",
+        "distance_meters": 96160,
+        "distance_miles": 59.75,
+        "duration_text": "1 hour 4 mins",
+        "duration_seconds": 3859,
+        "duration_minutes": 64.3
+      }
     },
     {
-      "city": "Burlingame",
-      "count": 2
+      "city": "Burlingame, California",
+      "count": 2,
+      "distance_miles": 59.45,
+      "travel_time_minutes": 65.7,
+      "google": {
+        "status": "OK",
+        "distance_text": "95.7 km",
+        "distance_meters": 95674,
+        "distance_miles": 59.45,
+        "duration_text": "1 hour 6 mins",
+        "duration_seconds": 3942,
+        "duration_minutes": 65.7
+      }
     },
     {
-      "city": "Milpitas",
-      "count": 2
+      "city": "Milpitas, California",
+      "count": 2,
+      "distance_miles": 37.41,
+      "travel_time_minutes": 43.5,
+      "google": {
+        "status": "OK",
+        "distance_text": "60.2 km",
+        "distance_meters": 60211,
+        "distance_miles": 37.41,
+        "duration_text": "44 mins",
+        "duration_seconds": 2613,
+        "duration_minutes": 43.5
+      }
     },
     {
-      "city": "San Mateo",
-      "count": 2
+      "city": "San Mateo, California",
+      "count": 2,
+      "distance_miles": 57.79,
+      "travel_time_minutes": 61.3,
+      "google": {
+        "status": "OK",
+        "distance_text": "93.0 km",
+        "distance_meters": 93004,
+        "distance_miles": 57.79,
+        "duration_text": "1 hour 1 min",
+        "duration_seconds": 3677,
+        "duration_minutes": 61.3
+      }
     },
     {
-      "city": "San Gregorio",
-      "count": 1
+      "city": "San Gregorio, California",
+      "count": 1,
+      "distance_miles": 38.41,
+      "travel_time_minutes": 46.5,
+      "google": {
+        "status": "OK",
+        "distance_text": "61.8 km",
+        "distance_meters": 61817,
+        "distance_miles": 38.41,
+        "duration_text": "47 mins",
+        "duration_seconds": 2790,
+        "duration_minutes": 46.5
+      }
     },
     {
-      "city": "Sausalito",
-      "count": 1
+      "city": "Sausalito, California",
+      "count": 1,
+      "distance_miles": 82.56,
+      "travel_time_minutes": 98.6,
+      "google": {
+        "status": "OK",
+        "distance_text": "133 km",
+        "distance_meters": 132867,
+        "distance_miles": 82.56,
+        "duration_text": "1 hour 39 mins",
+        "duration_seconds": 5915,
+        "duration_minutes": 98.6
+      }
     },
     {
-      "city": "Santa Cruz",
-      "count": 1
+      "city": "Santa Cruz, California",
+      "count": 1,
+      "distance_miles": 0.13,
+      "travel_time_minutes": 0.8,
+      "google": {
+        "status": "OK",
+        "distance_text": "0.2 km",
+        "distance_meters": 209,
+        "distance_miles": 0.13,
+        "duration_text": "1 min",
+        "duration_seconds": 51,
+        "duration_minutes": 0.8
+      }
     },
     {
-      "city": "South San Francisco",
-      "count": 1
+      "city": "South San Francisco, California",
+      "count": 1,
+      "distance_miles": 66.56,
+      "travel_time_minutes": 67.9,
+      "google": {
+        "status": "OK",
+        "distance_text": "107 km",
+        "distance_meters": 107112,
+        "distance_miles": 66.56,
+        "duration_text": "1 hour 8 mins",
+        "duration_seconds": 4074,
+        "duration_minutes": 67.9
+      }
     },
     {
-      "city": "Saratoga",
-      "count": 1
+      "city": "Saratoga, California",
+      "count": 1,
+      "distance_miles": 27.71,
+      "travel_time_minutes": 33.5,
+      "google": {
+        "status": "OK",
+        "distance_text": "44.6 km",
+        "distance_meters": 44589,
+        "distance_miles": 27.71,
+        "duration_text": "33 mins",
+        "duration_seconds": 2007,
+        "duration_minutes": 33.5
+      }
     },
     {
-      "city": "Richmond",
-      "count": 1
+      "city": "Richmond, California",
+      "count": 1,
+      "distance_miles": 82.36,
+      "travel_time_minutes": 87.7,
+      "google": {
+        "status": "OK",
+        "distance_text": "133 km",
+        "distance_meters": 132549,
+        "distance_miles": 82.36,
+        "duration_text": "1 hour 28 mins",
+        "duration_seconds": 5264,
+        "duration_minutes": 87.7
+      }
     },
     {
-      "city": "MOFFETT FIELD",
-      "count": 1
+      "city": "MOFFETT FIELD, California",
+      "count": 1,
+      "distance_miles": 38.21,
+      "travel_time_minutes": 43.9,
+      "google": {
+        "status": "OK",
+        "distance_text": "61.5 km",
+        "distance_meters": 61487,
+        "distance_miles": 38.21,
+        "duration_text": "44 mins",
+        "duration_seconds": 2636,
+        "duration_minutes": 43.9
+      }
     },
     {
-      "city": "San Ramon",
-      "count": 1
+      "city": "San Ramon, California",
+      "count": 1,
+      "distance_miles": 68.18,
+      "travel_time_minutes": 69.9,
+      "google": {
+        "status": "OK",
+        "distance_text": "110 km",
+        "distance_meters": 109733,
+        "distance_miles": 68.18,
+        "duration_text": "1 hour 10 mins",
+        "duration_seconds": 4194,
+        "duration_minutes": 69.9
+      }
     },
     {
-      "city": "Walnut Creek",
-      "count": 1
+      "city": "Walnut Creek, California",
+      "count": 1,
+      "distance_miles": 80.11,
+      "travel_time_minutes": 81.4,
+      "google": {
+        "status": "OK",
+        "distance_text": "129 km",
+        "distance_meters": 128919,
+        "distance_miles": 80.11,
+        "duration_text": "1 hour 21 mins",
+        "duration_seconds": 4885,
+        "duration_minutes": 81.4
+      }
     },
     {
-      "city": "Danville",
-      "count": 1
+      "city": "Danville, California",
+      "count": 1,
+      "distance_miles": 72.76,
+      "travel_time_minutes": 74.6,
+      "google": {
+        "status": "OK",
+        "distance_text": "117 km",
+        "distance_meters": 117094,
+        "distance_miles": 72.76,
+        "duration_text": "1 hour 15 mins",
+        "duration_seconds": 4475,
+        "duration_minutes": 74.6
+      }
     }
   ]
 }
