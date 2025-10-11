@@ -64,8 +64,8 @@ def detect_user_location():
         
     except Exception as e:
         print(f"❌ Error detecting location: {e}")
-        print("Using fallback location: San Francisco, CA")
-        return "San Francisco, CA"
+        print("Using fallback location: None")
+        return None
 
 async def fetch_all_luma_events_bounding_box(session, east, north, south, west, slug,
                                                base_url="https://api2.luma.com/discover/get-paginated-events",
@@ -420,6 +420,11 @@ async def main():
 
     # Automatically detect user location from IP
     user_location = detect_user_location()
+    
+    if not user_location:
+        print("❌ ERROR: Could not detect user location!")
+        print("Unable to generate city summary without location data.")
+        return
     
     print("\n=== Starting concurrent fetch and aggregation for multiple slugs ===")
     print(f"📍 Using detected location: {user_location}")
