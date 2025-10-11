@@ -2,16 +2,27 @@
 """Fetch and aggregate Luma events from multiple slugs into a single combined JSON file.
 
 This script:
-1. Fetches events from multiple Luma slugs in parallel 
-2. Combines all events into a single JSON file
-3. Optionally generates city summaries with Google Maps integration
+1. Automatically detects your location from IP address
+2. Fetches events from multiple Luma slugs in parallel 
+3. Combines all events into a single JSON file
+4. Generates city summaries with Google Maps distance/time data (REQUIRED)
+
+REQUIREMENTS:
+- GOOGLE_MAPS_API_KEY environment variable must be set
+- Internet connection for IP-based location detection
 
 Usage:
+  export GOOGLE_MAPS_API_KEY="your_api_key_here"
   python3 fetchEvents.py
 
 The script will create:
 - aggregatedEvents/combined_events.json (all events sorted by start_at)
-- aggregatedEvents/city_summary.json (city counts and distances, if Google Maps API is available)
+- aggregatedEvents/city_summary.json (city counts with detailed distance/time data from Google Maps)
+
+Distance/time data includes:
+- Text format (e.g., "15.2 miles", "23 minutes")
+- Numeric values (meters, miles, seconds, minutes)
+- Status information for each city lookup
 """
 
 import asyncio
@@ -27,6 +38,34 @@ from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
+
+
+def detect_user_location():
+    """Detect user's location from IP address using ipinfo.io"""
+    try:
+        print("Detecting your location from IP...")
+        ipinfo = requests.get("https://ipinfo.io").json()
+        loc = ipinfo.get("loc")
+        city = ipinfo.get("city")
+        region = ipinfo.get("region")
+        country = ipinfo.get("country")
+        
+        if city and region:
+            location_string = f"{city}, {region}, {country}"
+        elif city:
+            location_string = f"{city}, {country}"
+        else:
+            location_string = f"{country}"
+            
+        print(f"📍 Detected location: {location_string}")
+        print(f"🗺️  Coordinates: {loc}")
+        
+        return location_string
+        
+    except Exception as e:
+        print(f"❌ Error detecting location: {e}")
+        print("Using fallback location: San Francisco, CA")
+        return "San Francisco, CA"
 
 async def fetch_all_luma_events_bounding_box(session, east, north, south, west, slug,
                                                base_url="https://api2.luma.com/discover/get-paginated-events",
@@ -134,31 +173,91 @@ def extract_city(item):
 
 
 def get_distance_and_time_from_user_location(origin, destination, gmaps_client):
-    """Get distance and estimated driving time between two locations."""
+    """Get distance and estimated driving time between two locations with detailed metrics."""
     try:
-        # Use Google Maps Distance Matrix API
+        # Use Google Maps Distance Matrix API with current time for more accurate estimates
         result = gmaps_client.distance_matrix(
             origins=[origin],
             destinations=[destination],
             mode="driving",
-            units="imperial"
+            departure_time=datetime.now()
         )
         
         if result["status"] == "OK":
             element = result["rows"][0]["elements"][0]
-            if element["status"] == "OK":
-                distance = element["distance"]["text"]
-                duration = element["duration"]["text"]
-                return distance, duration
+            status = element.get("status")
+            
+            if status == "OK":
+                distance_text = element["distance"]["text"]
+                duration_text = element["duration"]["text"]
+                distance_value = element["distance"]["value"]  # meters
+                duration_value = element["duration"]["value"]  # seconds
+                
+                # Convert meters to miles
+                distance_miles = None
+                try:
+                    distance_miles = round(distance_value / 1609.344, 2) if distance_value is not None else None
+                except Exception:
+                    distance_miles = None
+                
+                # Convert seconds to minutes
+                duration_minutes = None
+                try:
+                    duration_minutes = round(duration_value / 60, 1) if duration_value is not None else None
+                except Exception:
+                    duration_minutes = None
+                
+                return {
+                    "status": status,
+                    "distance_text": distance_text,
+                    "distance_meters": distance_value,
+                    "distance_miles": distance_miles,
+                    "duration_text": duration_text,
+                    "duration_seconds": duration_value,
+                    "duration_minutes": duration_minutes,
+                }
+            else:
+                return {
+                    "status": status,
+                    "distance_text": None,
+                    "distance_meters": None,
+                    "distance_miles": None,
+                    "duration_text": None,
+                    "duration_seconds": None,
+                    "duration_minutes": None,
+                }
+                
     except Exception as e:
         print(f"Error getting distance/time for {destination}: {e}")
+        return {
+            "status": "ERROR",
+            "error": str(e),
+            "distance_text": None,
+            "distance_meters": None,
+            "distance_miles": None,
+            "duration_text": None,
+            "duration_seconds": None,
+            "duration_minutes": None,
+        }
     
-    return None, None
+    return None
 
 
-def generate_city_summary(events, user_location=None):
-    """Generate summary of events by city with optional distance/time info."""
+def generate_city_summary(events, user_location):
+    """Generate summary of events by city with distance/time info from Google Maps API.
+    
+    Args:
+        events: List of events to summarize
+        user_location: User's location string (required for distance calculations)
+        
+    Raises:
+        ValueError: If Google Maps API key is not configured or user_location is not provided
+    """
     print("Generating city summary...")
+    
+    # Validate that user_location is provided
+    if not user_location:
+        raise ValueError("user_location is required for city summary generation")
     
     # Count events by city
     city_counter = Counter()
@@ -166,43 +265,89 @@ def generate_city_summary(events, user_location=None):
         city = extract_city(event)
         city_counter[city] += 1
     
-    summary = {}
-    
-    # Set up Google Maps client if API key is available
-    gmaps_client = None
+    # Set up Google Maps client - this is now REQUIRED
     google_maps_api_key = os.getenv("GOOGLE_MAPS_API_KEY")
-    if google_maps_api_key:
-        try:
-            gmaps_client = googlemaps.Client(key=google_maps_api_key)
-            print("Google Maps API key found - will include distance/time info")
-        except Exception as e:
-            print(f"Error setting up Google Maps client: {e}")
-    else:
-        print("No Google Maps API key found - will skip distance/time info")
+    if not google_maps_api_key:
+        raise ValueError("GOOGLE_MAPS_API_KEY environment variable is required for city summary generation")
     
-    for city, count in city_counter.most_common():
-        city_info = {"event_count": count}
+    try:
+        gmaps_client = googlemaps.Client(key=google_maps_api_key)
+        print("Google Maps API key found - generating distance/time info for all cities")
+    except Exception as e:
+        raise ValueError(f"Error setting up Google Maps client: {e}")
+    
+    summary = {}
+    cities = list(city_counter.keys())
+    
+    print(f"📊 Processing {len(cities)} cities for distance/time calculations...")
+    
+    for i, city in enumerate(cities, 1):
+        city_info = {"event_count": city_counter[city]}
         
-        # Add distance/time info if user location and Google Maps are available
-        if user_location and gmaps_client and city != "Unknown":
-            distance, duration = get_distance_and_time_from_user_location(
+        print(f"  [{i}/{len(cities)}] Querying: {city}", end="")
+        
+        # Always add distance/time info for valid cities
+        if city != "Unknown":
+            distance_data = get_distance_and_time_from_user_location(
                 user_location, city, gmaps_client
             )
-            if distance and duration:
-                city_info["distance_from_user"] = distance
-                city_info["drive_time_from_user"] = duration
+            
+            if distance_data and distance_data.get("status") == "OK":
+                city_info.update(distance_data)
+                miles = distance_data.get("distance_miles", "N/A")
+                minutes = distance_data.get("duration_minutes", "N/A")
+                print(f" ✓ {miles} mi, {minutes} min")
+            else:
+                city_info.update({
+                    "status": distance_data.get("status", "ERROR") if distance_data else "ERROR",
+                    "distance_text": "Unable to calculate",
+                    "distance_meters": None,
+                    "distance_miles": None,
+                    "duration_text": "Unable to calculate", 
+                    "duration_seconds": None,
+                    "duration_minutes": None,
+                })
+                if distance_data and distance_data.get("error"):
+                    city_info["error"] = distance_data["error"]
+                    print(f" ✗ Error: {distance_data['error']}")
+                else:
+                    status = distance_data.get("status", "UNKNOWN") if distance_data else "UNKNOWN"
+                    print(f" ✗ Status: {status}")
+        else:
+            city_info.update({
+                "status": "INVALID_LOCATION",
+                "distance_text": "N/A - Unknown location",
+                "distance_meters": None,
+                "distance_miles": None,
+                "duration_text": "N/A - Unknown location",
+                "duration_seconds": None,
+                "duration_minutes": None,
+            })
+            print(" ⚠️  Unknown location - skipping")
         
         summary[city] = city_info
     
+    print(f"✅ Completed distance/time calculations for all cities")
     return summary
 
 
 async def fetch_and_aggregate_events(slugs, east, north, south, west, 
-                                   output_dir="aggregatedEvents", 
-                                   user_location=None):
+                                   user_location, output_dir="aggregatedEvents"):
     """
     Fetch events for multiple slugs concurrently and combine into single JSON file.
+    
+    Args:
+        slugs: List of Luma calendar slugs to fetch from
+        east, north, south, west: Bounding box coordinates  
+        user_location: User's location string (required for Google Maps distance calculations)
+        output_dir: Directory to save output files
+        
+    Raises:
+        ValueError: If user_location is not provided or Google Maps API is not configured
     """
+    if not user_location:
+        raise ValueError("user_location is required for generating city summary with distance/time data")
+    
     # Create output directory if it doesn't exist
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
@@ -267,21 +412,40 @@ async def main():
         "sf"
     ]
 
-    # Optional: user location for distance calculations
-    # Set this to your location if you want distance/time info in city summary
-    user_location = None  # e.g., "San Francisco, CA" or "1234 Main St, City, State"
+    # Validate required environment variable
+    if not os.getenv("GOOGLE_MAPS_API_KEY"):
+        print("❌ ERROR: GOOGLE_MAPS_API_KEY environment variable is required!")
+        print("Please set it with: export GOOGLE_MAPS_API_KEY='your_api_key_here'")
+        return
 
-    print("=== Starting concurrent fetch and aggregation for multiple slugs ===\n")
-    total_events = await fetch_and_aggregate_events(
-        slugs, east_coord, north_coord, south_coord, west_coord,
-        user_location=user_location
-    )
+    # Automatically detect user location from IP
+    user_location = detect_user_location()
     
-    print(f"\n🎉 Successfully processed {total_events} total events!")
-    print("📁 Output files:")
-    print("   - aggregatedEvents/combined_events.json")
-    print("   - aggregatedEvents/city_summary.json")
-    print("\n💡 Use filterEvents.py to filter the combined events by location, date, or weekday")
+    print("\n=== Starting concurrent fetch and aggregation for multiple slugs ===")
+    print(f"📍 Using detected location: {user_location}")
+    print("🗺️  Google Maps API will be used for all distance/time calculations\n")
+    
+    try:
+        total_events = await fetch_and_aggregate_events(
+            slugs, east_coord, north_coord, south_coord, west_coord,
+            user_location
+        )
+        
+        print(f"\n🎉 Successfully processed {total_events} total events!")
+        print("📁 Output files:")
+        print("   - aggregatedEvents/combined_events.json")
+        print("   - aggregatedEvents/city_summary.json")
+        print("\n💡 Use filterEvents.py to filter the combined events by location, date, or weekday")
+        
+    except ValueError as e:
+        print(f"❌ Error: {e}")
+        print("Please ensure:")
+        print("1. GOOGLE_MAPS_API_KEY environment variable is set")
+        print("2. user_location is properly configured in the script")
+        return
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
+        return
 
 
 if __name__ == "__main__":

@@ -3,17 +3,25 @@ Fetches events from several Luma calendars and enables filtering by location, da
 
 Start and End times (start_at, end_at) appear to be in standard UTC timestamp. For filtering by dates and times, go by the user's time zone.
 
+## Requirements
+
+- **Google Maps API Key**: Required for generating city summaries with distance/time data
+- **Internet Connection**: For automatic IP-based location detection
+
 ## Quick Start
 
-1. **Fetch and aggregate events** using `fetchEvents.py` - this will fetch events from multiple Luma slugs in parallel and create combined output files:
+1. **Set up Google Maps API key**:
+   ```bash
+   export GOOGLE_MAPS_API_KEY="your_api_key_here"
+   ```
+
+2. **Fetch and aggregate events** (location will be detected automatically):
    ```bash
    python3 -m pip install -r requirements.txt
-   # Optionally set your Google Maps API key to enable distance/time lookups in city summary
-   export GOOGLE_MAPS_API_KEY="YOUR_KEY_HERE"
    python3 fetchEvents.py
    ```
 
-2. **Filter events** using `filterEvents.py` to find events matching your criteria:
+3. **Filter events** using `filterEvents.py`:
    ```bash
    # Filter by location and date
    python3 filterEvents.py --location "Mountain View" --dates 2025-10-10 2025-10-11
@@ -29,11 +37,23 @@ Start and End times (start_at, end_at) appear to be in standard UTC timestamp. F
 
 After running `fetchEvents.py`, you'll get:
 - `aggregatedEvents/combined_events.json` — All events from all slugs, sorted by start time
-- `aggregatedEvents/city_summary.json` — Event counts per city (with optional distance/time data if Google Maps API is configured)
+- `aggregatedEvents/city_summary.json` — Event counts per city **with comprehensive distance/time data**
+
+### City Summary Data Structure
+Each city in the summary includes:
+- `event_count`: Number of events in that city
+- `status`: Google Maps API status ("OK", "ERROR", etc.)
+- `distance_text`: Human-readable distance (e.g., "15.2 miles")
+- `distance_meters`: Distance in meters (numeric)
+- `distance_miles`: Distance in miles (numeric)
+- `duration_text`: Human-readable duration (e.g., "23 minutes")
+- `duration_seconds`: Duration in seconds (numeric)  
+- `duration_minutes`: Duration in minutes (numeric)
 
 ## How It Works
 
-- **fetchEvents.py**: Fetches events from multiple Luma calendar slugs in parallel, combines them into a single sorted list, and generates a city summary
+- **Automatic Location Detection**: Uses ipinfo.io to detect your location from IP address
+- **fetchEvents.py**: Fetches events from multiple Luma calendar slugs in parallel, combines them into a single sorted list, and generates a comprehensive city summary with **mandatory** Google Maps distance/time data
 - **filterEvents.py**: Filters the combined events by location, specific dates, and/or weekdays
 
 No intermediate JSON files are created per slug - everything is processed in memory and output as a single combined file.
