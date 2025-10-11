@@ -49,21 +49,11 @@ def filter_by_weekdays(events, weekdays, pacific_tz):
             filtered.append(e)
     return filtered
 
-def filter_by_event_type(events, event_type=None):
-    if not event_type:
-        return events
-    event_type_lower = event_type.lower()
-    return [
-        e for e in events
-        if e['event'].get('event_type', '').lower() == event_type_lower
-    ]
-
-def apply_filters(events, location=None, dates=None, weekdays=None, event_type=None):
+def apply_filters(events, location=None, dates=None, weekdays=None):
     pacific_tz = ZoneInfo("America/Los_Angeles")
     events = filter_by_location(events, location)
     events = filter_by_dates(events, dates, pacific_tz)
     events = filter_by_weekdays(events, weekdays, pacific_tz)
-    events = filter_by_event_type(events, event_type)
     return events
 
 def parse_args():
@@ -72,7 +62,6 @@ def parse_args():
     parser.add_argument('--location', type=str, help='City name to filter by (case-insensitive)')
     parser.add_argument('--dates', type=str, nargs='*', help='Specific date(s) to filter by (YYYY-MM-DD)')
     parser.add_argument('--weekdays', type=str, nargs='*', help='Weekday(s) to filter by (e.g., Monday Tuesday)')
-    parser.add_argument('--event_type', type=str, help='Event type to filter by (case-insensitive)')
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -83,8 +72,7 @@ if __name__ == "__main__":
         events,
         location=args.location,
         dates=args.dates,
-        weekdays=args.weekdays,
-        event_type=args.event_type
+        weekdays=args.weekdays
     )
     
     print(f"Filtered {len(filtered_events)} events matching criteria.")
