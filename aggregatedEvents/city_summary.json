@@ -163,11 +163,11 @@
     "event_count": 3,
     "status": "OK",
     "distance_text": "60.4 km",
-    "distance_meters": 60420,
-    "distance_miles": 37.54,
+    "distance_meters": 60432,
+    "distance_miles": 37.55,
     "duration_text": "44 mins",
-    "duration_seconds": 2660,
-    "duration_minutes": 44.3
+    "duration_seconds": 2668,
+    "duration_minutes": 44.5
   },
   "Burlingame, California": {
     "event_count": 2,
@@ -202,12 +202,12 @@
   "Sunnyvale, California": {
     "event_count": 7,
     "status": "OK",
-    "distance_text": "59.1 km",
-    "distance_meters": 59107,
-    "distance_miles": 36.73,
+    "distance_text": "58.2 km",
+    "distance_meters": 58230,
+    "distance_miles": 36.18,
     "duration_text": "45 mins",
-    "duration_seconds": 2711,
-    "duration_minutes": 45.2
+    "duration_seconds": 2687,
+    "duration_minutes": 44.8
   },
   "MOFFETT FIELD, California": {
     "event_count": 1,

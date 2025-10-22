@@ -341,6 +341,72 @@ def get_distance_and_time_from_user_location(origin, destination, gmaps_client):
     return None
 
 
+def enrich_event_with_city(event, gmaps_client):
+    """Enrich an event with city data using reverse geocoding if needed.
+    
+    Args:
+        event: Event item to enrich
+        gmaps_client: Google Maps client for reverse geocoding
+        
+    Returns:
+        The event with potentially enriched geo_address_info
+    """
+    ev = event.get("event", {})
+    geo = ev.get("geo_address_info", {}) if isinstance(ev.get("geo_address_info", {}), dict) else {}
+    
+    # Check if city data is already present
+    has_city_data = (
+        geo.get("city_state") or 
+        geo.get("city") or 
+        event.get("calendar", {}).get("geo_city")
+    )
+    
+    # If no city data, try to add it via reverse geocoding
+    if not has_city_data and gmaps_client:
+        coordinate = ev.get("coordinate", {})
+        lat = coordinate.get("latitude")
+        lng = coordinate.get("longitude")
+        
+        if lat is not None and lng is not None:
+            try:
+                result = gmaps_client.reverse_geocode((lat, lng))
+                if result:
+                    # Extract city and state from address components
+                    city_name = None
+                    state_name = None
+                    country_name = None
+                    
+                    for component in result[0].get("address_components", []):
+                        types = component.get("types", [])
+                        if "locality" in types:
+                            city_name = component.get("long_name")
+                        elif "administrative_area_level_1" in types:
+                            state_name = component.get("long_name")
+                        elif "country" in types:
+                            country_name = component.get("long_name")
+                    
+                    # Enrich the geo_address_info with the geocoded data
+                    if city_name:
+                        geo["city"] = city_name
+                        if state_name:
+                            geo["region"] = state_name
+                            geo["city_state"] = f"{city_name}, {state_name}"
+                        if country_name:
+                            geo["country"] = country_name
+                        
+                        # Update the event with enriched data
+                        if isinstance(ev.get("geo_address_info"), dict):
+                            ev["geo_address_info"] = geo
+                        
+                        return event, True  # Return event and enrichment flag
+                        
+            except Exception as e:
+                # Silent fail - just return original event
+                pass
+    
+    return event, False  # Return event and no enrichment flag
+
+
 def generate_city_summary(events, user_location):
     """Generate summary of events by city with distance/time info from Google Maps API.
     
@@ -479,6 +545,29 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
             all_events.extend(events)
 
         print(f"\n✓ Total events collected from all sources: {len(all_events)}")
+
+        # Enrich events with city data using reverse geocoding where needed
+        print("🔍 Enriching events with city data via reverse geocoding...")
+        google_maps_api_key = os.getenv("GOOGLE_MAPS_API_KEY")
+        if google_maps_api_key:
+            try:
+                gmaps_client = googlemaps.Client(key=google_maps_api_key)
+                enriched_count = 0
+                
+                for i, event in enumerate(all_events):
+                    enriched_event, was_enriched = enrich_event_with_city(event, gmaps_client)
+                    all_events[i] = enriched_event
+                    if was_enriched:
+                        enriched_count += 1
+                
+                if enriched_count > 0:
+                    print(f"✓ Enriched {enriched_count} events with reverse-geocoded city data")
+                else:
+                    print(f"✓ All events already have city data")
+            except Exception as e:
+                print(f"⚠️  Could not enrich events: {e}")
+        else:
+            print("⚠️  Skipping event enrichment (no Google Maps API key)")
 
         # Sort events by start_at
         def sort_key(item):
