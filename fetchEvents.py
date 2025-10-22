@@ -341,6 +341,35 @@ def get_distance_and_time_from_user_location(origin, destination, gmaps_client):
     return None
 
 
+def normalize_city_data(event):
+    """Normalize city data by extracting city and state from city_state if needed.
+    
+    Args:
+        event: Event item to normalize
+        
+    Returns:
+        The event with normalized geo_address_info (city and state fields populated)
+    """
+    ev = event.get("event", {})
+    geo = ev.get("geo_address_info", {}) if isinstance(ev.get("geo_address_info", {}), dict) else {}
+    
+    # If city field is missing but city_state is present, extract it
+    if not geo.get("city") and geo.get("city_state"):
+        city_state = geo.get("city_state", "")
+        if "," in city_state:
+            parts = city_state.split(",", 1)
+            geo["city"] = parts[0].strip()
+            # Only set state if not already present
+            if not geo.get("region") and len(parts) > 1:
+                geo["region"] = parts[1].strip()
+            
+            # Update the event with normalized data
+            if isinstance(ev.get("geo_address_info"), dict):
+                ev["geo_address_info"] = geo
+    
+    return event
+
+
 def enrich_event_with_city(event, gmaps_client):
     """Enrich an event with city data using reverse geocoding if needed.
     
@@ -351,6 +380,9 @@ def enrich_event_with_city(event, gmaps_client):
     Returns:
         The event with potentially enriched geo_address_info
     """
+    # First normalize existing city_state data
+    event = normalize_city_data(event)
+    
     ev = event.get("event", {})
     geo = ev.get("geo_address_info", {}) if isinstance(ev.get("geo_address_info", {}), dict) else {}
     

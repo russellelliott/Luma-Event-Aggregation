@@ -13,20 +13,9 @@ def get_local_date_and_weekday(utc_iso_str, pacific_tz):
     return dt_local.date(), dt_local.strftime("%A")
 
 def get_city_from_event(event):
-    """Extract city from event, checking both city and city_state fields."""
+    """Extract city from event's geo_address_info."""
     geo_info = event.get('geo_address_info', {})
-    
-    # First try to get city directly
-    city = geo_info.get('city', '')
-    if city:
-        return city
-    
-    # Fallback: extract city from city_state (e.g., "Mountain View, California" -> "Mountain View")
-    city_state = geo_info.get('city_state', '')
-    if city_state and ',' in city_state:
-        return city_state.split(',')[0].strip()
-    
-    return 'Unknown city'
+    return geo_info.get('city', 'Unknown city')
 
 def convert_to_local_time(utc_iso_str, timezone_str="America/Los_Angeles"):
     """Convert UTC timestamp to local timezone."""
