@@ -127,6 +127,68 @@ async def fetch_all_luma_events_bounding_box(session, east, north, south, west, 
     return slug, all_events
 
 
+async def fetch_all_luma_events_calendar_api(session, east, north, south, west, calendar_api_id, calendar_name,
+                                               base_url="https://api2.luma.com/calendar/get-items",
+                                               pagination_limit=100):
+    """
+    Fetch all events for a given calendar_api_id and bounding box using async requests.
+    """
+    all_events = []
+    has_more = True
+    current_cursor = None
+
+    print(f"[{calendar_name}] Starting to fetch events within bounding box:")
+    print(f"[{calendar_name}]   North: {north}, South: {south}, East: {east}, West: {west}")
+
+    while has_more:
+        params = {
+            "calendar_api_id": calendar_api_id,
+            "east": east,
+            "north": north,
+            "south": south,
+            "west": west,
+            "location_required": "true",
+            "period": "future",
+            "pagination_limit": pagination_limit,
+        }
+        if current_cursor:
+            params["pagination_cursor"] = current_cursor
+
+        try:
+            async with session.get(base_url, params=params) as response:
+                response.raise_for_status()
+                data = await response.json()
+
+                # Add events from the current page to our list
+                current_page_entries = data.get("entries", [])
+                all_events.extend(current_page_entries)
+
+                # Update pagination info
+                has_more = data.get("has_more", False)
+                current_cursor = data.get("next_cursor")
+
+                print(f"[{calendar_name}] Fetched {len(current_page_entries)} events. Total: {len(all_events)}. Has more: {has_more}")
+                if current_cursor:
+                    print(f"[{calendar_name}]   Next cursor: {current_cursor}")
+
+                if has_more:
+                    # Small delay to be polite to the API
+                    await asyncio.sleep(0.2)
+
+        except aiohttp.ClientError as e:
+            print(f"[{calendar_name}] HTTP error occurred: {e}")
+            break
+        except json.JSONDecodeError as e:
+            print(f"[{calendar_name}] Error decoding JSON response: {e}")
+            break
+        except Exception as e:
+            print(f"[{calendar_name}] An unexpected error occurred: {e}")
+            break
+
+    print(f"[{calendar_name}] Finished fetching. Total events collected: {len(all_events)}")
+    return calendar_name, all_events
+
+
 def get_start_at(item):
     """Extract start_at datetime from event item."""
     s = item.get("start_at") or item.get("event", {}).get("start_at")
@@ -331,13 +393,14 @@ def generate_city_summary(events, user_location):
     return summary
 
 
-async def fetch_and_aggregate_events(slugs, east, north, south, west, 
+async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south, west, 
                                    user_location, output_dir="aggregatedEvents"):
     """
-    Fetch events for multiple slugs concurrently and combine into single JSON file.
+    Fetch events for multiple slugs and calendar APIs concurrently and combine into single JSON file.
     
     Args:
         slugs: List of Luma calendar slugs to fetch from
+        calendar_configs: List of dicts with 'calendar_api_id' and 'name' keys for calendar API endpoints
         east, north, south, west: Bounding box coordinates  
         user_location: User's location string (required for Google Maps distance calculations)
         output_dir: Directory to save output files
@@ -358,17 +421,27 @@ async def fetch_and_aggregate_events(slugs, east, north, south, west,
             fetch_all_luma_events_bounding_box(session, east, north, south, west, slug)
             for slug in slugs
         ]
+        
+        # Create tasks for all calendar API endpoints
+        tasks.extend([
+            fetch_all_luma_events_calendar_api(
+                session, east, north, south, west, 
+                config['calendar_api_id'], 
+                config['name']
+            )
+            for config in calendar_configs
+        ])
 
         # Run all tasks concurrently
         results = await asyncio.gather(*tasks)
 
-        # Combine all events from all slugs
+        # Combine all events from all sources
         all_events = []
-        for slug, events in results:
-            print(f"\n[{slug}] Collected {len(events)} events")
+        for source_name, events in results:
+            print(f"\n[{source_name}] Collected {len(events)} events")
             all_events.extend(events)
 
-        print(f"\n✓ Total events collected from all slugs: {len(all_events)}")
+        print(f"\n✓ Total events collected from all sources: {len(all_events)}")
 
         # Sort events by start_at
         def sort_key(item):
@@ -403,13 +476,35 @@ async def main():
     south_coord = 36.71845574708184
     west_coord = -122.7412517581312
 
-    # Slugs to fetch
+    # Slugs to fetch (using discover API)
     slugs = [
         "tech",
         "ai",
-        # "sf-developer-events", #endpoint doesn't work
-        # "genai-sf", #endpoint doesn't work
         "sf"
+    ]
+    
+    # Calendar API configs (using calendar/get-items API)
+    calendar_configs = [
+        {
+            "calendar_api_id": "cal-KtLaZ6kCBmxDuxH",
+            "name": "foundersocialclub"
+        },
+        {
+            "calendar_api_id": "cal-JTdFQadEz0AOxyV",
+            "name": "genai-sf"
+        },
+        {
+            "calendar_api_id": "cal-S7gDcd9Akzu62RD",
+            "name": "sf-developer-events"
+        },
+        {
+            "calendar_api_id": "cal-woPJeSUOpqqFp6f",
+            "name": "svgenai"
+        },
+        {
+            "calendar_api_id": "cal-E74MDlDKBaeAwXK",
+            "name": "genai-collective"
+        }
     ]
 
     # Validate required environment variable
@@ -426,13 +521,14 @@ async def main():
         print("Unable to generate city summary without location data.")
         return
     
-    print("\n=== Starting concurrent fetch and aggregation for multiple slugs ===")
+    print("\n=== Starting concurrent fetch and aggregation for multiple sources ===")
     print(f"📍 Using detected location: {user_location}")
+    print(f"📊 Fetching from {len(slugs)} slug-based calendars and {len(calendar_configs)} calendar APIs")
     print("🗺️  Google Maps API will be used for all distance/time calculations\n")
     
     try:
         total_events = await fetch_and_aggregate_events(
-            slugs, east_coord, north_coord, south_coord, west_coord,
+            slugs, calendar_configs, east_coord, north_coord, south_coord, west_coord,
             user_location
         )
         
