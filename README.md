@@ -77,11 +77,52 @@ https://www.perplexity.ai/api-platform
 
 **Fetching events from these calendars:**
 
+**Slug-based calendars** (using discover API):
 * https://luma.com/tech
-* https://luma.com/ai  
-* https://luma.com/sf-developer-events (endpoint doesn't work)
-* https://luma.com/genai-sf (endpoint doesn't work)
+* https://luma.com/ai
 * https://luma.com/sf
+
+**Calendar API calendars** (using calendar/get-items API):
+* https://luma.com/foundersocialclub
+* https://luma.com/genai-sf
+* https://luma.com/sf-developer-events
+* https://luma.com/svgenai
+* https://luma.com/genai-collective
+
+### How to Add More Calendars
+
+To find the API endpoint for a new Luma calendar:
+
+1. **Go to the calendar's map page** (e.g., `https://luma.com/[calendar-name]/map`)
+2. **Open browser DevTools** (F12 or Right Click → Inspect)
+3. **Go to the Network tab**
+4. **Refresh the page** and look for API calls with `200` status
+5. **Find the request** named `get-items` or `get-paginated-events`
+6. **Click on it** to view the request details
+
+You'll see one of two types:
+- **Slug-based**: `https://api2.luma.com/discover/get-paginated-events?slug=...`
+  - Add the slug to the `slugs` list in `fetchEvents.py`
+- **Calendar API**: `https://api2.luma.com/calendar/get-items?calendar_api_id=cal-...`
+  - Add the calendar_api_id and name to the `calendar_configs` list in `fetchEvents.py`
+
+Example:
+```python
+# In fetchEvents.py main() function:
+
+slugs = [
+    "tech",
+    "ai",
+    "your-new-slug"  # Add here
+]
+
+calendar_configs = [
+    {
+        "calendar_api_id": "cal-YourNewId",
+        "name": "your-calendar-name"  # Add here
+    }
+]
+```
 
 Additional resources:
 - https://github.com/copilot/c/7d08c886-2a01-470b-b89e-348a9169d863
