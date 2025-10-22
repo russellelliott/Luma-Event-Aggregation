@@ -1,6 +1,6 @@
 {
   "San Francisco, California": {
-    "event_count": 417,
+    "event_count": 419,
     "status": "OK",
     "distance_text": "122 km",
     "distance_meters": 122163,
@@ -22,12 +22,12 @@
   "Stanford, California": {
     "event_count": 26,
     "status": "OK",
-    "distance_text": "68.3 km",
-    "distance_meters": 68339,
-    "distance_miles": 42.46,
+    "distance_text": "69.1 km",
+    "distance_meters": 69058,
+    "distance_miles": 42.91,
     "duration_text": "51 mins",
-    "duration_seconds": 3053,
-    "duration_minutes": 50.9
+    "duration_seconds": 3071,
+    "duration_minutes": 51.2
   },
   "Berkeley, California": {
     "event_count": 13,
@@ -60,7 +60,7 @@
     "duration_minutes": 30.7
   },
   "Mountain View, California": {
-    "event_count": 10,
+    "event_count": 11,
     "status": "OK",
     "distance_text": "59.4 km",
     "distance_meters": 59388,
@@ -102,15 +102,15 @@
   "Pleasanton, California": {
     "event_count": 4,
     "status": "OK",
-    "distance_text": "90.2 km",
-    "distance_meters": 90178,
-    "distance_miles": 56.03,
-    "duration_text": "1 hour 4 mins",
-    "duration_seconds": 3847,
-    "duration_minutes": 64.1
+    "distance_text": "91.6 km",
+    "distance_meters": 91590,
+    "distance_miles": 56.91,
+    "duration_text": "1 hour 7 mins",
+    "duration_seconds": 3991,
+    "duration_minutes": 66.5
   },
   "Oakland, California": {
-    "event_count": 14,
+    "event_count": 15,
     "status": "OK",
     "distance_text": "113 km",
     "distance_meters": 113182,
@@ -148,16 +148,6 @@
     "duration_text": "41 mins",
     "duration_seconds": 2461,
     "duration_minutes": 41.0
-  },
-  "Unknown": {
-    "event_count": 3,
-    "status": "INVALID_LOCATION",
-    "distance_text": "N/A - Unknown location",
-    "distance_meters": null,
-    "distance_miles": null,
-    "duration_text": "N/A - Unknown location",
-    "duration_seconds": null,
-    "duration_minutes": null
   },
   "Woodside, California": {
     "event_count": 1,
@@ -212,12 +202,12 @@
   "Sunnyvale, California": {
     "event_count": 7,
     "status": "OK",
-    "distance_text": "58.2 km",
-    "distance_meters": 58230,
-    "distance_miles": 36.18,
+    "distance_text": "59.1 km",
+    "distance_meters": 59107,
+    "distance_miles": 36.73,
     "duration_text": "45 mins",
-    "duration_seconds": 2687,
-    "duration_minutes": 44.8
+    "duration_seconds": 2711,
+    "duration_minutes": 45.2
   },
   "MOFFETT FIELD, California": {
     "event_count": 1,
@@ -232,22 +222,22 @@
   "Danville, California": {
     "event_count": 2,
     "status": "OK",
-    "distance_text": "111 km",
-    "distance_meters": 111112,
-    "distance_miles": 69.04,
-    "duration_text": "1 hour 14 mins",
-    "duration_seconds": 4467,
-    "duration_minutes": 74.5
+    "distance_text": "113 km",
+    "distance_meters": 112525,
+    "distance_miles": 69.92,
+    "duration_text": "1 hour 17 mins",
+    "duration_seconds": 4612,
+    "duration_minutes": 76.9
   },
   "Dublin, California": {
     "event_count": 1,
     "status": "OK",
-    "distance_text": "97.1 km",
-    "distance_meters": 97104,
-    "distance_miles": 60.34,
-    "duration_text": "1 hour 6 mins",
-    "duration_seconds": 3972,
-    "duration_minutes": 66.2
+    "distance_text": "98.5 km",
+    "distance_meters": 98516,
+    "distance_miles": 61.22,
+    "duration_text": "1 hour 9 mins",
+    "duration_seconds": 4116,
+    "duration_minutes": 68.6
   },
   "Redwood City, California": {
     "event_count": 1,
@@ -262,22 +252,22 @@
   "San Ramon, California": {
     "event_count": 2,
     "status": "OK",
-    "distance_text": "104 km",
-    "distance_meters": 103751,
-    "distance_miles": 64.47,
-    "duration_text": "1 hour 10 mins",
-    "duration_seconds": 4186,
-    "duration_minutes": 69.8
+    "distance_text": "105 km",
+    "distance_meters": 105163,
+    "distance_miles": 65.35,
+    "duration_text": "1 hour 12 mins",
+    "duration_seconds": 4330,
+    "duration_minutes": 72.2
   },
   "Walnut Creek, California": {
     "event_count": 1,
     "status": "OK",
-    "distance_text": "123 km",
-    "distance_meters": 122937,
-    "distance_miles": 76.39,
-    "duration_text": "1 hour 21 mins",
-    "duration_seconds": 4878,
-    "duration_minutes": 81.3
+    "distance_text": "124 km",
+    "distance_meters": 124349,
+    "distance_miles": 77.27,
+    "duration_text": "1 hour 24 mins",
+    "duration_seconds": 5023,
+    "duration_minutes": 83.7
   },
   "Cupertino, California": {
     "event_count": 1,

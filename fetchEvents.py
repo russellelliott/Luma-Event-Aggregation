@@ -204,8 +204,16 @@ def get_start_at(item):
             return None
 
 
-def extract_city(item):
-    """Extract city name, preferring city_state format for better Google Maps accuracy."""
+def extract_city(item, gmaps_client=None):
+    """Extract city name, preferring city_state format for better Google Maps accuracy.
+    
+    Args:
+        item: Event item to extract city from
+        gmaps_client: Optional Google Maps client for reverse geocoding
+        
+    Returns:
+        City string in "City, State" format, or "Unknown" if not found
+    """
     ev = item.get("event", {})
     geo = ev.get("geo_address_info", {}) if isinstance(ev.get("geo_address_info", {}), dict) else {}
 
@@ -230,6 +238,34 @@ def extract_city(item):
         if state:
             return f"{city}, {state}"
         return city
+
+    # Last resort: Use reverse geocoding if coordinates are available
+    if gmaps_client:
+        coordinate = ev.get("coordinate", {})
+        lat = coordinate.get("latitude")
+        lng = coordinate.get("longitude")
+        
+        if lat is not None and lng is not None:
+            try:
+                result = gmaps_client.reverse_geocode((lat, lng))
+                if result:
+                    # Extract city and state from address components
+                    city_name = None
+                    state_name = None
+                    
+                    for component in result[0].get("address_components", []):
+                        types = component.get("types", [])
+                        if "locality" in types:
+                            city_name = component.get("long_name")
+                        elif "administrative_area_level_1" in types:
+                            state_name = component.get("long_name")
+                    
+                    if city_name and state_name:
+                        return f"{city_name}, {state_name}"
+                    elif city_name:
+                        return city_name
+            except Exception as e:
+                print(f"    ⚠️  Reverse geocoding failed for coordinates ({lat}, {lng}): {e}")
 
     return "Unknown"
 
@@ -321,12 +357,6 @@ def generate_city_summary(events, user_location):
     if not user_location:
         raise ValueError("user_location is required for city summary generation")
     
-    # Count events by city
-    city_counter = Counter()
-    for event in events:
-        city = extract_city(event)
-        city_counter[city] += 1
-    
     # Set up Google Maps client - this is now REQUIRED
     google_maps_api_key = os.getenv("GOOGLE_MAPS_API_KEY")
     if not google_maps_api_key:
@@ -334,9 +364,16 @@ def generate_city_summary(events, user_location):
     
     try:
         gmaps_client = googlemaps.Client(key=google_maps_api_key)
-        print("Google Maps API key found - generating distance/time info for all cities")
+        print("Google Maps API key found - will use for distance/time calculations and reverse geocoding")
     except Exception as e:
         raise ValueError(f"Error setting up Google Maps client: {e}")
+    
+    # Count events by city, using reverse geocoding for missing locations
+    print("📍 Extracting cities from events (using reverse geocoding when needed)...")
+    city_counter = Counter()
+    for event in events:
+        city = extract_city(event, gmaps_client)
+        city_counter[city] += 1
     
     summary = {}
     cities = list(city_counter.keys())
