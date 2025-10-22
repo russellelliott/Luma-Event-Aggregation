@@ -12,14 +12,32 @@ def get_local_date_and_weekday(utc_iso_str, pacific_tz):
     dt_local = dt_utc.astimezone(pacific_tz)
     return dt_local.date(), dt_local.strftime("%A")
 
+def get_city_from_event(event):
+    """Extract city from event, checking both city and city_state fields."""
+    geo_info = event.get('geo_address_info', {})
+    
+    # First try to get city directly
+    city = geo_info.get('city', '')
+    if city:
+        return city
+    
+    # Fallback: extract city from city_state (e.g., "Mountain View, California" -> "Mountain View")
+    city_state = geo_info.get('city_state', '')
+    if city_state and ',' in city_state:
+        return city_state.split(',')[0].strip()
+    
+    return 'Unknown city'
+
 def filter_by_location(events, location=None):
     if not location:
         return events
     location_lower = location.lower()
-    return [
-        e for e in events
-        if e['event'].get('geo_address_info', {}).get('city', '').lower() == location_lower
-    ]
+    filtered = []
+    for e in events:
+        city = get_city_from_event(e['event'])
+        if city.lower() == location_lower:
+            filtered.append(e)
+    return filtered
 
 def filter_by_dates(events, dates, pacific_tz):
     if not dates:
@@ -62,11 +80,18 @@ def parse_args():
     parser.add_argument('--location', type=str, help='City name to filter by (case-insensitive)')
     parser.add_argument('--dates', type=str, nargs='*', help='Specific date(s) to filter by (YYYY-MM-DD)')
     parser.add_argument('--weekdays', type=str, nargs='*', help='Weekday(s) to filter by (e.g., Monday Tuesday)')
+    parser.add_argument('--today', action='store_true', help='Filter events happening today')
     return parser.parse_args()
 
 if __name__ == "__main__":
     args = parse_args()
     events = load_events(args.file)
+    
+    # Handle --today flag
+    if args.today:
+        from datetime import date
+        today = date.today().isoformat()
+        args.dates = [today] if not args.dates else args.dates + [today]
     
     filtered_events = apply_filters(
         events,
@@ -81,5 +106,5 @@ if __name__ == "__main__":
     for e in filtered_events:
         name = e['event'].get('name', 'Unnamed Event')
         start = e['event'].get('start_at', 'No start date')
-        city = e['event'].get('geo_address_info', {}).get('city', 'Unknown city')
+        city = get_city_from_event(e['event'])
         print(f"- {name} | Start: {start} UTC | City: {city}")
