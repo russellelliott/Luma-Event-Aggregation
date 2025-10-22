@@ -28,6 +28,15 @@ def get_city_from_event(event):
     
     return 'Unknown city'
 
+def convert_to_local_time(utc_iso_str, timezone_str="America/Los_Angeles"):
+    """Convert UTC timestamp to local timezone."""
+    if not utc_iso_str:
+        return None
+    dt_utc = datetime.fromisoformat(utc_iso_str.replace('Z', '+00:00')).replace(tzinfo=ZoneInfo("UTC"))
+    local_tz = ZoneInfo(timezone_str)
+    dt_local = dt_utc.astimezone(local_tz)
+    return dt_local.strftime("%Y-%m-%d %I:%M %p %Z")
+
 def filter_by_location(events, location=None):
     if not location:
         return events
@@ -100,11 +109,20 @@ if __name__ == "__main__":
         weekdays=args.weekdays
     )
     
-    print(f"Filtered {len(filtered_events)} events matching criteria.")
-    
-    # Optional: print event names with start dates
+    # Convert to JSON output format with local times
+    output = []
     for e in filtered_events:
-        name = e['event'].get('name', 'Unnamed Event')
-        start = e['event'].get('start_at', 'No start date')
-        city = get_city_from_event(e['event'])
-        print(f"- {name} | Start: {start} UTC | City: {city}")
+        event_data = e['event']
+        timezone = event_data.get('timezone', 'America/Los_Angeles')
+        
+        output.append({
+            'name': event_data.get('name', 'Unnamed Event'),
+            'city': get_city_from_event(event_data),
+            'start': convert_to_local_time(event_data.get('start_at'), timezone),
+            'end': convert_to_local_time(event_data.get('end_at'), timezone)
+        })
+    
+    # Print summary and JSON output
+    print(f"Filtered {len(output)} events matching criteria.\n")
+    print(json.dumps(output, indent=2))
+
