@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 import googlemaps
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 # Load environment variables from .env file
 load_dotenv()
@@ -191,6 +193,81 @@ def calculate_distances(venue_address, parking_options, maps_api_key):
     return parking_options
 
 
+def get_parking_pricing(parking_name, parking_address, gemini_api_key):
+    """
+    Query Gemini separately to get detailed pricing information for a parking location.
+    
+    Args:
+        parking_name (str): Name of the parking facility
+        parking_address (str): Address of the parking facility
+        gemini_api_key (str): Gemini API key
+    
+    Returns:
+        dict: Structured pricing information
+    """
+    client = genai.Client(api_key=gemini_api_key)
+    
+    prompt = f"""What is the detailed pricing information for {parking_name} located at {parking_address}?
+
+Return the pricing as a JSON object with the following structure (use null for unavailable information):
+{{
+  "hourly_rate_daytime": "rate or null",
+  "hourly_rate_evening": "rate or null",
+  "daily_maximum_12hr": "rate or null",
+  "daily_maximum_24hr": "rate or null",
+  "early_bird_rate": "rate or null",
+  "weekend_rate": "rate or null",
+  "other_rates": {{"rate_name": "rate_details"}},
+  "payment_methods": ["method1", "method2"],
+  "notes": "any additional pricing notes"
+}}
+
+Only return the JSON object, no other text."""
+    
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+        
+        # Try to parse the response as JSON
+        response_text = response.text.strip()
+        # Extract JSON from response
+        json_start = response_text.find('{')
+        json_end = response_text.rfind('}') + 1
+        if json_start != -1 and json_end > json_start:
+            json_str = response_text[json_start:json_end]
+            return json.loads(json_str)
+        else:
+            return {"raw_response": response_text}
+    except Exception as e:
+        return {"error": f"Could not retrieve pricing: {str(e)}"}
+
+
+def get_parking_pricing_parallel(parking_options, gemini_api_key):
+    """
+    Get pricing information for all parking options in parallel.
+    
+    Args:
+        parking_options (list): List of parking options with name and address
+        gemini_api_key (str): Gemini API key
+    
+    Returns:
+        list: Parking options with pricing information added
+    """
+    def fetch_pricing(option):
+        if option.get('name') and option.get('address'):
+            pricing_info = get_parking_pricing(option['name'], option['address'], gemini_api_key)
+            option['pricing'] = pricing_info
+        return option
+    
+    # Use ThreadPoolExecutor to run requests in parallel
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        parking_options = list(executor.map(fetch_pricing, parking_options))
+    
+    return parking_options
+
+
 def parse_event_datetime(datetime_str):
     """
     Parse ISO 8601 datetime string to datetime object.
@@ -234,17 +311,23 @@ def find_parking_near_event(event_details, gemini_api_key, maps_api_key):
     # Build a detailed prompt for parking search using coordinates
     prompt = f"""Find 3-5 parking options near {venue_address} (coordinates: {lat}, {lon}) that meet these criteria:
 1. Must be within 0.5 miles (10 min walk)
-2. Include pricing information when available
+2. Include detailed pricing information - specifically hourly rates, daily maximums, early bird rates, weekend rates, etc.
 3. Mix of parking types: garages, lots, and street parking if available
 
-For each option, provide:
+For each option, provide COMPLETE information:
 - Name and address
-- Operating hours
-- Pricing (hourly, daily, evening rates)
+- Operating hours (including specific times, e.g., "Monday-Friday: 6:00 AM - 10:00 PM")
+- Detailed Pricing (include ALL available rate types):
+  * Hourly rates (daytime and evening if different)
+  * Daily maximum rates (12-hour and 24-hour if available)
+  * Early bird rates
+  * Weekend rates
+  * Any other special rates or discounts
 - Type (garage, lot, street)
-- Any special notes (validation, restrictions, etc.)
+- Any special notes (validation, restrictions, payment methods, etc.)
 
-Return the results as a JSON array with objects containing these fields: name, address, hours, pricing, type, notes."""
+Return the results as a JSON array with objects containing these fields: name, address, hours, pricing, type, notes.
+The pricing field should contain a detailed breakdown of all available rates."""
     
     # Configure Maps grounding with event location
     location_config = types.ToolConfig(
@@ -289,6 +372,11 @@ Return the results as a JSON array with objects containing these fields: name, a
         except (json.JSONDecodeError, ValueError) as e:
             print(f"⚠️  Could not parse response as JSON: {str(e)}")
             parking_data = []
+        
+        # Get detailed pricing for each parking option in parallel
+        print(f"\n💰 Fetching detailed pricing information for {len(parking_data)} locations...")
+        parking_data = get_parking_pricing_parallel(parking_data, gemini_api_key)
+        print(f"✓ Pricing information retrieved")
         
         # Calculate distances for each parking option
         parking_data = calculate_distances(venue_address, parking_data, maps_api_key)
