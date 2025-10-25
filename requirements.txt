@@ -2,3 +2,5 @@ aiohttp
 requests
 googlemaps
 dotenv
+beautifulsoup4
+google-genai
