@@ -662,6 +662,22 @@ async def main():
         {
             "calendar_api_id": "cal-E74MDlDKBaeAwXK",
             "name": "genai-collective"
+        },
+        {
+            "calendar_api_id": "cal-Sl7q1nHTRXQzjP2",
+            "name": "Frontier Tower"
+        },
+        {
+            "calendar_api_id": "cal-MvY3wcADGCzQG99",
+            "name": "Beta-events"
+        },
+        {
+            "calendar_api_id": "cal-sjbD5arlvEXNV14",
+            "name": "Founders Creative"
+        },
+        {
+            "calendar_api_id": "cal-sQ96963Pp5vVxZl",
+            "name": "pnpsv"
         }
     ]
 

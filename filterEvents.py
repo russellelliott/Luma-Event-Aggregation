@@ -108,7 +108,8 @@ if __name__ == "__main__":
             'name': event_data.get('name', 'Unnamed Event'),
             'city': get_city_from_event(event_data),
             'start': convert_to_local_time(event_data.get('start_at'), timezone),
-            'end': convert_to_local_time(event_data.get('end_at'), timezone)
+            'end': convert_to_local_time(event_data.get('end_at'), timezone),
+            'url': f"https://luma.com/{event_data.get('url', '')}"
         })
     
     # Print summary and JSON output
