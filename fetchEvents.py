@@ -204,6 +204,70 @@ def get_start_at(item):
             return None
 
 
+def get_event_api_id(event):
+    """Extract api_id from an event, prioritizing the nested event.api_id.
+    
+    Args:
+        event: Event item
+        
+    Returns:
+        The api_id string, or None if not found
+    """
+    # Try nested event.api_id first (this is the unique event identifier)
+    api_id = event.get("event", {}).get("api_id")
+    if api_id:
+        return api_id
+    
+    # Fallback to top-level api_id
+    api_id = event.get("api_id")
+    if api_id:
+        return api_id
+    
+    return None
+
+
+def deduplicate_events(events):
+    """Remove duplicate events based on event.api_id (the unique event identifier).
+    
+    Args:
+        events: List of event items
+        
+    Returns:
+        List of deduplicated events, keeping the first occurrence of each event.api_id
+    """
+    seen_api_ids = set()
+    deduplicated = []
+    duplicates_count = 0
+    duplicates_list = []
+    
+    for event in events:
+        # Use the nested event.api_id as the unique identifier
+        api_id = get_event_api_id(event)
+        
+        if api_id:
+            if api_id not in seen_api_ids:
+                seen_api_ids.add(api_id)
+                deduplicated.append(event)
+            else:
+                duplicates_count += 1
+                event_name = event.get("event", {}).get("name") or event.get("name", "Unknown")
+                duplicates_list.append(f"  - {api_id}: {event_name}")
+        else:
+            # Events without api_id are kept (shouldn't happen, but safety measure)
+            deduplicated.append(event)
+    
+    if duplicates_count > 0:
+        print(f"🔍 Removed {duplicates_count} duplicate events based on event.api_id:")
+        for dup in duplicates_list[:10]:  # Show first 10 duplicates
+            print(dup)
+        if duplicates_count > 10:
+            print(f"  ... and {duplicates_count - 10} more")
+    else:
+        print(f"✓ No duplicate events found")
+    
+    return deduplicated
+
+
 def extract_city(item, gmaps_client=None):
     """Extract city name, preferring city_state format for better Google Maps accuracy.
     
@@ -577,6 +641,13 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
             all_events.extend(events)
 
         print(f"\n✓ Total events collected from all sources: {len(all_events)}")
+        
+        # Remove duplicate events based on api_id
+        print("🔄 Removing duplicate events...")
+        deduplicated_events = deduplicate_events(all_events)
+        removed_count = len(all_events) - len(deduplicated_events)
+        all_events = deduplicated_events
+        print(f"✓ Total unique events after deduplication: {len(all_events)} (removed {removed_count})")
 
         # Enrich events with city data using reverse geocoding where needed
         print("🔍 Enriching events with city data via reverse geocoding...")
