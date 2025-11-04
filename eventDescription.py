@@ -62,6 +62,19 @@ def get_luma_event_info(slug):
                         info['latitude'] = loc.get('latitude') or geo.get('latitude')
                         info['longitude'] = loc.get('longitude') or geo.get('longitude')
                     
+                    # Extract pricing information
+                    if 'offers' in event:
+                        info['pricing'] = []
+                        offers = event['offers'] if isinstance(event['offers'], list) else [event['offers']]
+                        for offer in offers:
+                            info['pricing'].append({
+                                'name': offer.get('name'),
+                                'price': offer.get('price'),
+                                'currency': offer.get('priceCurrency'),
+                                'availability': offer.get('availability'),
+                                'url': offer.get('url')
+                            })
+                    
                     return info
                     
             except (json.JSONDecodeError, TypeError):
@@ -76,8 +89,10 @@ def get_luma_event_info(slug):
 
 
 # Example usage
+# Ticket only shows prices for general admission. Could use tools like Gemini for more specific pricing
+# https://gemini.google.com/app/07952bc87b9d6fbf
 if __name__ == '__main__':
-    event_info = get_luma_event_info('l5vbx903')
+    event_info = get_luma_event_info('GAP2025')
     
     if 'error' in event_info:
         print(f"Error: {event_info['error']}")
@@ -88,3 +103,10 @@ if __name__ == '__main__':
         print(f"Coordinates: ({event_info['latitude']}, {event_info['longitude']})")
         print(f"Start: {event_info['start_date']}")
         print(f"End: {event_info['end_date']}")
+        if 'pricing' in event_info and event_info['pricing']:
+            print("Pricing:")
+            for option in event_info['pricing']:
+                price_str = f"${option['price']}" if option['price'] else "Free"
+                currency = option.get('currency', '')
+                name = option.get('name', 'Ticket')
+                print(f"  - {name}: {price_str} {currency}")
