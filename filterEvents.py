@@ -5,45 +5,47 @@ import argparse
 import lancedb
 import os
 
-def load_events(file_path=None, db_path=None):
-    """Load events from LanceDB database, falling back to JSON file if database not available.
+def load_events(db_path=None):
+    """Load events from LanceDB database.
     
     Args:
-        file_path: Path to JSON file (for backward compatibility)
         db_path: Path to LanceDB database directory (defaults to ~/.luma-event-aggregation/data)
         
     Returns:
         List of events
+        
+    Raises:
+        FileNotFoundError: If database or events table not found
     """
     # Set default database path if not provided
     if db_path is None:
         home_dir = os.path.expanduser("~")
         db_path = os.path.join(home_dir, ".luma-event-aggregation", "data", "events.db")
     
-    # Try to load from LanceDB first
-    if os.path.exists(db_path):
-        try:
-            db = lancedb.connect(db_path)
-            if "events" in db.table_names():
-                table = db.open_table("events")
-                events = table.to_pandas().to_dict('records')
-                print(f"📊 Loaded {len(events)} events from LanceDB database")
-                return events
-        except Exception as e:
-            print(f"⚠️  Could not load from LanceDB: {e}")
-            print("  Falling back to JSON file...")
+    # Load from LanceDB
+    if not os.path.exists(db_path):
+        raise FileNotFoundError(
+            f"LanceDB database not found at {db_path}\n"
+            f"Run 'python fetchEvents.py' first to populate the database."
+        )
     
-    # Fallback to JSON file
-    if file_path is None:
-        file_path = "aggregatedEvents/combined_events.json"
-    
-    if os.path.exists(file_path):
-        with open(file_path, 'r') as f:
-            events = json.load(f)
-            print(f"📊 Loaded {len(events)} events from JSON file: {file_path}")
-            return events
-    
-    raise FileNotFoundError(f"Could not find events in LanceDB or JSON file: {file_path}")
+    try:
+        db = lancedb.connect(db_path)
+        if "events" not in db.table_names():
+            raise FileNotFoundError(
+                f"'events' table not found in LanceDB at {db_path}\n"
+                f"Run 'python fetchEvents.py' first to populate the database."
+            )
+        
+        table = db.open_table("events")
+        events = table.to_pandas().to_dict('records')
+        print(f"📊 Loaded {len(events)} events from LanceDB")
+        return events
+    except Exception as e:
+        raise FileNotFoundError(
+            f"Error loading events from LanceDB at {db_path}: {e}\n"
+            f"Run 'python fetchEvents.py' first to populate the database."
+        )
 
 def get_local_date_and_weekday(utc_iso_str, pacific_tz):
     dt_utc = datetime.fromisoformat(utc_iso_str.replace('Z', '+00:00')).replace(tzinfo=ZoneInfo("UTC"))
@@ -52,8 +54,18 @@ def get_local_date_and_weekday(utc_iso_str, pacific_tz):
 
 def get_city_from_event(event):
     """Extract city from event's geo_address_info."""
+    # Handle case where event might be the raw event dict (from API)
+    # or might have nested 'event' key (from JSON structure)
+    if isinstance(event, dict) and 'event' in event:
+        event = event['event']
+    
     geo_info = event.get('geo_address_info', {})
-    return geo_info.get('city', 'Unknown city')
+    if isinstance(geo_info, dict):
+        city = geo_info.get('city') or geo_info.get('city_state', 'Unknown city')
+    else:
+        city = 'Unknown city'
+    
+    return city if city else 'Unknown city'
 
 def convert_to_local_time(utc_iso_str, timezone_str="America/Los_Angeles"):
     """Convert UTC timestamp to local timezone."""
@@ -70,8 +82,10 @@ def filter_by_location(events, location=None):
     location_lower = location.lower()
     filtered = []
     for e in events:
-        city = get_city_from_event(e['event'])
-        if city.lower() == location_lower:
+        # Handle both nested and flat event structures
+        event_data = e.get('event', e) if isinstance(e, dict) else e
+        city = get_city_from_event(event_data)
+        if city and city.lower() == location_lower:
             filtered.append(e)
     return filtered
 
@@ -81,7 +95,9 @@ def filter_by_dates(events, dates, pacific_tz):
     date_set = set(dates)
     filtered = []
     for e in events:
-        start_at = e['event'].get('start_at')
+        # Handle both nested and flat event structures
+        event_data = e.get('event', e) if isinstance(e, dict) else e
+        start_at = event_data.get('start_at')
         if not start_at:
             continue
         event_date, _ = get_local_date_and_weekday(start_at, pacific_tz)
@@ -95,7 +111,9 @@ def filter_by_weekdays(events, weekdays, pacific_tz):
     weekdays_set = set(day.capitalize() for day in weekdays)
     filtered = []
     for e in events:
-        start_at = e['event'].get('start_at')
+        # Handle both nested and flat event structures
+        event_data = e.get('event', e) if isinstance(e, dict) else e
+        start_at = event_data.get('start_at')
         if not start_at:
             continue
         _, event_weekday = get_local_date_and_weekday(start_at, pacific_tz)
@@ -111,9 +129,8 @@ def apply_filters(events, location=None, dates=None, weekdays=None):
     return events
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Filter events from LanceDB database or JSON file')
-    parser.add_argument('--file', type=str, default='aggregatedEvents/combined_events.json', help='Path to combined events JSON file (fallback)')
-    parser.add_argument('--db', type=str, default=None, help=f'Path to LanceDB database (defaults to ~/.luma-event-aggregation/data/events.db)')
+    parser = argparse.ArgumentParser(description='Filter events from LanceDB database')
+    parser.add_argument('--db', type=str, default=None, help='Path to LanceDB database (defaults to ~/.luma-event-aggregation/data/events.db)')
     parser.add_argument('--location', type=str, help='City name to filter by (case-insensitive)')
     parser.add_argument('--dates', type=str, nargs='*', help='Specific date(s) to filter by (YYYY-MM-DD)')
     parser.add_argument('--weekdays', type=str, nargs='*', help='Weekday(s) to filter by (e.g., Monday Tuesday)')
@@ -124,7 +141,7 @@ if __name__ == "__main__":
     args = parse_args()
     
     try:
-        events = load_events(file_path=args.file, db_path=args.db)
+        events = load_events(db_path=args.db)
     except FileNotFoundError as e:
         print(f"❌ Error: {e}")
         exit(1)
@@ -145,7 +162,8 @@ if __name__ == "__main__":
     # Convert to JSON output format with local times
     output = []
     for e in filtered_events:
-        event_data = e['event']
+        # Handle both nested and flat event structures from LanceDB
+        event_data = e.get('event', e) if isinstance(e, dict) else e
         timezone = event_data.get('timezone', 'America/Los_Angeles')
         
         output.append({

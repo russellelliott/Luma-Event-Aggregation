@@ -699,21 +699,23 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
             db.create_table("events", data=sorted_events)
             print(f"✓ Saved {len(sorted_events)} events to LanceDB table 'events'")
         except Exception as e:
-            print(f"⚠️  Error saving to LanceDB: {e}")
-            print("  Falling back to JSON file...")
+            print(f"❌ Error saving to LanceDB: {e}")
+            raise
 
-        # Save combined events (also keep JSON for compatibility)
-        combined_output = os.path.join(output_dir, "combined_events.json")
-        with open(combined_output, "w") as f:
-            json.dump(sorted_events, f, indent=2)
-        print(f"✓ Saved {len(sorted_events)} combined events to {combined_output}")
-
-        # Generate city summary
+        # Generate and save city summary to LanceDB as well
         city_summary = generate_city_summary(sorted_events, user_location)
-        summary_output = os.path.join(output_dir, "city_summary.json")
-        with open(summary_output, "w") as f:
-            json.dump(city_summary, f, indent=2)
-        print(f"✓ Saved city summary to {summary_output}")
+        
+        # Convert city summary to table format for LanceDB
+        city_summary_data = [
+            {"city": city, **details}
+            for city, details in city_summary.items()
+        ]
+        
+        if "city_summary" in db.table_names():
+            db.drop_table("city_summary")
+        
+        db.create_table("city_summary", data=city_summary_data)
+        print(f"✓ Saved city summary to LanceDB table 'city_summary'")
 
     print(f"\n✓ All processing completed successfully!")
     return len(sorted_events)
