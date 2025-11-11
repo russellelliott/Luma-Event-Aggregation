@@ -1,276 +1,86 @@
 {
-  "Berkeley, California": {
-    "event_count": 4,
-    "status": "OK",
-    "distance_text": "121 km",
-    "distance_meters": 121342,
-    "distance_miles": 75.4,
-    "duration_text": "1 hour 25 mins",
-    "duration_seconds": 5123,
-    "duration_minutes": 85.4
-  },
   "San Francisco, California": {
-    "event_count": 279,
+    "event_count": 267,
     "status": "OK",
-    "distance_text": "122 km",
-    "distance_meters": 122154,
-    "distance_miles": 75.9,
-    "duration_text": "1 hour 23 mins",
-    "duration_seconds": 4956,
-    "duration_minutes": 82.6
-  },
-  "San Mateo, California": {
-    "event_count": 5,
-    "status": "OK",
-    "distance_text": "93.2 km",
-    "distance_meters": 93203,
-    "distance_miles": 57.91,
-    "duration_text": "1 hour 3 mins",
-    "duration_seconds": 3795,
-    "duration_minutes": 63.2
-  },
-  "San Jose, California": {
-    "event_count": 12,
-    "status": "OK",
-    "distance_text": "52.6 km",
-    "distance_meters": 52650,
-    "distance_miles": 32.72,
-    "duration_text": "41 mins",
-    "duration_seconds": 2461,
-    "duration_minutes": 41.0
+    "distance_text": "118 km",
+    "distance_meters": 118215,
+    "distance_miles": 73.46,
+    "duration_text": "1 hour 22 mins",
+    "duration_seconds": 4892,
+    "duration_minutes": 81.5
   },
   "Stanford, California": {
-    "event_count": 19,
+    "event_count": 18,
     "status": "OK",
     "distance_text": "69.0 km",
     "distance_meters": 69048,
     "distance_miles": 42.9,
     "duration_text": "51 mins",
-    "duration_seconds": 3066,
-    "duration_minutes": 51.1
-  },
-  "San Ramon, California": {
-    "event_count": 3,
-    "status": "OK",
-    "distance_text": "104 km",
-    "distance_meters": 103745,
-    "distance_miles": 64.46,
-    "duration_text": "1 hour 10 mins",
-    "duration_seconds": 4186,
-    "duration_minutes": 69.8
-  },
-  "Burlingame, California": {
-    "event_count": 1,
-    "status": "OK",
-    "distance_text": "95.9 km",
-    "distance_meters": 95872,
-    "distance_miles": 59.57,
-    "duration_text": "1 hour 8 mins",
-    "duration_seconds": 4072,
-    "duration_minutes": 67.9
+    "duration_seconds": 3080,
+    "duration_minutes": 51.3
   },
   "Palo Alto, California": {
-    "event_count": 28,
+    "event_count": 22,
     "status": "OK",
-    "distance_text": "70.5 km",
-    "distance_meters": 70454,
-    "distance_miles": 43.78,
-    "duration_text": "54 mins",
-    "duration_seconds": 3213,
-    "duration_minutes": 53.5
+    "distance_text": "68.6 km",
+    "distance_meters": 68627,
+    "distance_miles": 42.64,
+    "duration_text": "49 mins",
+    "duration_seconds": 2952,
+    "duration_minutes": 49.2
   },
-  "Santa Clara, California": {
-    "event_count": 4,
+  "San Mateo, California": {
+    "event_count": 5,
     "status": "OK",
-    "distance_text": "50.4 km",
-    "distance_meters": 50384,
-    "distance_miles": 31.31,
-    "duration_text": "42 mins",
-    "duration_seconds": 2547,
-    "duration_minutes": 42.5
+    "distance_text": "89.3 km",
+    "distance_meters": 89311,
+    "distance_miles": 55.5,
+    "duration_text": "1 hour 1 min",
+    "duration_seconds": 3679,
+    "duration_minutes": 61.3
   },
-  "East Palo Alto, California": {
-    "event_count": 1,
-    "status": "OK",
-    "distance_text": "69.5 km",
-    "distance_meters": 69525,
-    "distance_miles": 43.2,
-    "duration_text": "50 mins",
-    "duration_seconds": 2986,
-    "duration_minutes": 49.8
-  },
-  "Walnut Creek, California": {
-    "event_count": 2,
-    "status": "OK",
-    "distance_text": "123 km",
-    "distance_meters": 122932,
-    "distance_miles": 76.39,
-    "duration_text": "1 hour 21 mins",
-    "duration_seconds": 4878,
-    "duration_minutes": 81.3
-  },
-  "Fremont, California": {
-    "event_count": 1,
-    "status": "OK",
-    "distance_text": "75.7 km",
-    "distance_meters": 75652,
-    "distance_miles": 47.01,
-    "duration_text": "54 mins",
-    "duration_seconds": 3236,
-    "duration_minutes": 53.9
-  },
-  "Oakland, California": {
+  "Berkeley, California": {
     "event_count": 6,
     "status": "OK",
-    "distance_text": "113 km",
-    "distance_meters": 113178,
-    "distance_miles": 70.33,
-    "duration_text": "1 hour 17 mins",
-    "duration_seconds": 4592,
-    "duration_minutes": 76.5
+    "distance_text": "121 km",
+    "distance_meters": 121342,
+    "distance_miles": 75.4,
+    "duration_text": "1 hour 25 mins",
+    "duration_seconds": 5126,
+    "duration_minutes": 85.4
+  },
+  "Menlo Park, California": {
+    "event_count": 12,
+    "status": "OK",
+    "distance_text": "74.1 km",
+    "distance_meters": 74063,
+    "distance_miles": 46.02,
+    "duration_text": "56 mins",
+    "duration_seconds": 3382,
+    "duration_minutes": 56.4
   },
   "Sunnyvale, California": {
-    "event_count": 10,
+    "event_count": 6,
     "status": "OK",
     "distance_text": "58.2 km",
     "distance_meters": 58229,
     "distance_miles": 36.18,
     "duration_text": "45 mins",
-    "duration_seconds": 2686,
-    "duration_minutes": 44.8
+    "duration_seconds": 2678,
+    "duration_minutes": 44.6
   },
-  "Mountain View, California": {
-    "event_count": 9,
+  "San Jose, California": {
+    "event_count": 7,
     "status": "OK",
-    "distance_text": "59.4 km",
-    "distance_meters": 59380,
-    "distance_miles": 36.9,
-    "duration_text": "44 mins",
-    "duration_seconds": 2643,
-    "duration_minutes": 44.0
-  },
-  "Redwood City, California": {
-    "event_count": 2,
-    "status": "OK",
-    "distance_text": "80.5 km",
-    "distance_meters": 80518,
-    "distance_miles": 50.03,
-    "duration_text": "59 mins",
-    "duration_seconds": 3543,
-    "duration_minutes": 59.0
-  },
-  "Woodside, California": {
-    "event_count": 1,
-    "status": "OK",
-    "distance_text": "75.2 km",
-    "distance_meters": 75207,
-    "distance_miles": 46.73,
-    "duration_text": "53 mins",
-    "duration_seconds": 3190,
-    "duration_minutes": 53.2
-  },
-  "Los Altos Hills, California": {
-    "event_count": 4,
-    "status": "OK",
-    "distance_text": "63.1 km",
-    "distance_meters": 63143,
-    "distance_miles": 39.24,
-    "duration_text": "47 mins",
-    "duration_seconds": 2845,
-    "duration_minutes": 47.4
-  },
-  "Pleasanton, California": {
-    "event_count": 4,
-    "status": "OK",
-    "distance_text": "90.2 km",
-    "distance_meters": 90175,
-    "distance_miles": 56.03,
-    "duration_text": "1 hour 4 mins",
-    "duration_seconds": 3843,
-    "duration_minutes": 64.0
-  },
-  "Menlo Park, California": {
-    "event_count": 8,
-    "status": "OK",
-    "distance_text": "73.3 km",
-    "distance_meters": 73327,
-    "distance_miles": 45.56,
-    "duration_text": "58 mins",
-    "duration_seconds": 3504,
-    "duration_minutes": 58.4
-  },
-  "Stinson Beach, California": {
-    "event_count": 1,
-    "status": "OK",
-    "distance_text": "154 km",
-    "distance_meters": 153558,
-    "distance_miles": 95.42,
-    "duration_text": "2 hours 7 mins",
-    "duration_seconds": 7634,
-    "duration_minutes": 127.2
-  },
-  "San Carlos, California": {
-    "event_count": 2,
-    "status": "OK",
-    "distance_text": "81.8 km",
-    "distance_meters": 81796,
-    "distance_miles": 50.83,
-    "duration_text": "57 mins",
-    "duration_seconds": 3430,
-    "duration_minutes": 57.2
-  },
-  "Belmont, California": {
-    "event_count": 1,
-    "status": "OK",
-    "distance_text": "83.4 km",
-    "distance_meters": 83356,
-    "distance_miles": 51.8,
-    "duration_text": "57 mins",
-    "duration_seconds": 3449,
-    "duration_minutes": 57.5
-  },
-  "Los Gatos, California": {
-    "event_count": 1,
-    "status": "OK",
-    "distance_text": "36.3 km",
-    "distance_meters": 36340,
-    "distance_miles": 22.58,
-    "duration_text": "31 mins",
-    "duration_seconds": 1843,
-    "duration_minutes": 30.7
-  },
-  "South San Francisco, California": {
-    "event_count": 1,
-    "status": "OK",
-    "distance_text": "107 km",
-    "distance_meters": 107295,
-    "distance_miles": 66.67,
-    "duration_text": "1 hour 11 mins",
-    "duration_seconds": 4243,
-    "duration_minutes": 70.7
-  },
-  "Dublin, California": {
-    "event_count": 1,
-    "status": "OK",
-    "distance_text": "97.1 km",
-    "distance_meters": 97099,
-    "distance_miles": 60.33,
-    "duration_text": "1 hour 6 mins",
-    "duration_seconds": 3972,
-    "duration_minutes": 66.2
-  },
-  "Los Altos, California": {
-    "event_count": 1,
-    "status": "OK",
-    "distance_text": "60.7 km",
-    "distance_meters": 60705,
-    "distance_miles": 37.72,
-    "duration_text": "44 mins",
-    "duration_seconds": 2668,
-    "duration_minutes": 44.5
+    "distance_text": "52.0 km",
+    "distance_meters": 52036,
+    "distance_miles": 32.33,
+    "duration_text": "41 mins",
+    "duration_seconds": 2463,
+    "duration_minutes": 41.0
   },
   "Santa Cruz, California": {
-    "event_count": 1,
+    "event_count": 2,
     "status": "OK",
     "distance_text": "1 m",
     "distance_meters": 0,
@@ -279,15 +89,175 @@
     "duration_seconds": 0,
     "duration_minutes": 0.0
   },
+  "Stinson Beach, California": {
+    "event_count": 1,
+    "status": "OK",
+    "distance_text": "154 km",
+    "distance_meters": 153558,
+    "distance_miles": 95.42,
+    "duration_text": "2 hours 8 mins",
+    "duration_seconds": 7670,
+    "duration_minutes": 127.8
+  },
+  "Mountain View, California": {
+    "event_count": 16,
+    "status": "OK",
+    "distance_text": "59.4 km",
+    "distance_meters": 59380,
+    "distance_miles": 36.9,
+    "duration_text": "44 mins",
+    "duration_seconds": 2649,
+    "duration_minutes": 44.1
+  },
+  "San Ramon, California": {
+    "event_count": 3,
+    "status": "OK",
+    "distance_text": "104 km",
+    "distance_meters": 103745,
+    "distance_miles": 64.46,
+    "duration_text": "1 hour 10 mins",
+    "duration_seconds": 4194,
+    "duration_minutes": 69.9
+  },
+  "San Carlos, California": {
+    "event_count": 2,
+    "status": "OK",
+    "distance_text": "81.8 km",
+    "distance_meters": 81796,
+    "distance_miles": 50.83,
+    "duration_text": "58 mins",
+    "duration_seconds": 3453,
+    "duration_minutes": 57.5
+  },
+  "Pleasanton, California": {
+    "event_count": 4,
+    "status": "OK",
+    "distance_text": "90.2 km",
+    "distance_meters": 90175,
+    "distance_miles": 56.03,
+    "duration_text": "1 hour 4 mins",
+    "duration_seconds": 3851,
+    "duration_minutes": 64.2
+  },
+  "Walnut Creek, California": {
+    "event_count": 1,
+    "status": "OK",
+    "distance_text": "123 km",
+    "distance_meters": 122932,
+    "distance_miles": 76.39,
+    "duration_text": "1 hour 21 mins",
+    "duration_seconds": 4887,
+    "duration_minutes": 81.5
+  },
+  "Oakland, California": {
+    "event_count": 8,
+    "status": "OK",
+    "distance_text": "113 km",
+    "distance_meters": 113178,
+    "distance_miles": 70.33,
+    "duration_text": "1 hour 17 mins",
+    "duration_seconds": 4595,
+    "duration_minutes": 76.6
+  },
+  "Santa Clara, California": {
+    "event_count": 5,
+    "status": "OK",
+    "distance_text": "50.9 km",
+    "distance_meters": 50874,
+    "distance_miles": 31.61,
+    "duration_text": "40 mins",
+    "duration_seconds": 2417,
+    "duration_minutes": 40.3
+  },
+  "Belmont, California": {
+    "event_count": 1,
+    "status": "OK",
+    "distance_text": "83.4 km",
+    "distance_meters": 83356,
+    "distance_miles": 51.8,
+    "duration_text": "58 mins",
+    "duration_seconds": 3455,
+    "duration_minutes": 57.6
+  },
+  "Los Gatos, California": {
+    "event_count": 1,
+    "status": "OK",
+    "distance_text": "36.3 km",
+    "distance_meters": 36340,
+    "distance_miles": 22.58,
+    "duration_text": "31 mins",
+    "duration_seconds": 1842,
+    "duration_minutes": 30.7
+  },
+  "San Gregorio, California": {
+    "event_count": 1,
+    "status": "OK",
+    "distance_text": "62.0 km",
+    "distance_meters": 61972,
+    "distance_miles": 38.51,
+    "duration_text": "47 mins",
+    "duration_seconds": 2798,
+    "duration_minutes": 46.6
+  },
+  "South San Francisco, California": {
+    "event_count": 1,
+    "status": "OK",
+    "distance_text": "103 km",
+    "distance_meters": 103356,
+    "distance_miles": 64.22,
+    "duration_text": "1 hour 10 mins",
+    "duration_seconds": 4174,
+    "duration_minutes": 69.6
+  },
+  "Los Altos, California": {
+    "event_count": 2,
+    "status": "OK",
+    "distance_text": "60.7 km",
+    "distance_meters": 60705,
+    "distance_miles": 37.72,
+    "duration_text": "45 mins",
+    "duration_seconds": 2672,
+    "duration_minutes": 44.5
+  },
+  "Redwood City, California": {
+    "event_count": 2,
+    "status": "OK",
+    "distance_text": "77.6 km",
+    "distance_meters": 77570,
+    "distance_miles": 48.2,
+    "duration_text": "56 mins",
+    "duration_seconds": 3377,
+    "duration_minutes": 56.3
+  },
   "California": {
     "event_count": 1,
     "status": "OK",
     "distance_text": "290 km",
-    "distance_meters": 290104,
-    "distance_miles": 180.26,
-    "duration_text": "3 hours 13 mins",
-    "duration_seconds": 11576,
-    "duration_minutes": 192.9
+    "distance_meters": 289877,
+    "distance_miles": 180.12,
+    "duration_text": "3 hours 10 mins",
+    "duration_seconds": 11390,
+    "duration_minutes": 189.8
+  },
+  "Los Altos Hills, California": {
+    "event_count": 2,
+    "status": "OK",
+    "distance_text": "63.1 km",
+    "distance_meters": 63143,
+    "distance_miles": 39.24,
+    "duration_text": "48 mins",
+    "duration_seconds": 2853,
+    "duration_minutes": 47.5
+  },
+  "Atherton, California": {
+    "event_count": 1,
+    "status": "OK",
+    "distance_text": "76.3 km",
+    "distance_meters": 76262,
+    "distance_miles": 47.39,
+    "duration_text": "56 mins",
+    "duration_seconds": 3349,
+    "duration_minutes": 55.8
   },
   "Danville, California": {
     "event_count": 1,
@@ -295,9 +265,9 @@
     "distance_text": "111 km",
     "distance_meters": 111108,
     "distance_miles": 69.04,
-    "duration_text": "1 hour 14 mins",
-    "duration_seconds": 4467,
-    "duration_minutes": 74.5
+    "duration_text": "1 hour 15 mins",
+    "duration_seconds": 4476,
+    "duration_minutes": 74.6
   },
   "Milpitas, California": {
     "event_count": 1,
@@ -306,7 +276,7 @@
     "distance_meters": 60419,
     "distance_miles": 37.54,
     "duration_text": "44 mins",
-    "duration_seconds": 2649,
-    "duration_minutes": 44.1
+    "duration_seconds": 2652,
+    "duration_minutes": 44.2
   }
 }

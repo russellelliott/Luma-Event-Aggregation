@@ -2,10 +2,48 @@ import json
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import argparse
+import lancedb
+import os
 
-def load_events(file_path):
-    with open(file_path, 'r') as f:
-        return json.load(f)
+def load_events(file_path=None, db_path=None):
+    """Load events from LanceDB database, falling back to JSON file if database not available.
+    
+    Args:
+        file_path: Path to JSON file (for backward compatibility)
+        db_path: Path to LanceDB database directory (defaults to ~/.luma-event-aggregation/data)
+        
+    Returns:
+        List of events
+    """
+    # Set default database path if not provided
+    if db_path is None:
+        home_dir = os.path.expanduser("~")
+        db_path = os.path.join(home_dir, ".luma-event-aggregation", "data", "events.db")
+    
+    # Try to load from LanceDB first
+    if os.path.exists(db_path):
+        try:
+            db = lancedb.connect(db_path)
+            if "events" in db.table_names():
+                table = db.open_table("events")
+                events = table.to_pandas().to_dict('records')
+                print(f"📊 Loaded {len(events)} events from LanceDB database")
+                return events
+        except Exception as e:
+            print(f"⚠️  Could not load from LanceDB: {e}")
+            print("  Falling back to JSON file...")
+    
+    # Fallback to JSON file
+    if file_path is None:
+        file_path = "aggregatedEvents/combined_events.json"
+    
+    if os.path.exists(file_path):
+        with open(file_path, 'r') as f:
+            events = json.load(f)
+            print(f"📊 Loaded {len(events)} events from JSON file: {file_path}")
+            return events
+    
+    raise FileNotFoundError(f"Could not find events in LanceDB or JSON file: {file_path}")
 
 def get_local_date_and_weekday(utc_iso_str, pacific_tz):
     dt_utc = datetime.fromisoformat(utc_iso_str.replace('Z', '+00:00')).replace(tzinfo=ZoneInfo("UTC"))
@@ -73,8 +111,9 @@ def apply_filters(events, location=None, dates=None, weekdays=None):
     return events
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Filter events from combined_events.json')
-    parser.add_argument('--file', type=str, default='aggregatedEvents/combined_events.json', help='Path to combined events JSON file')
+    parser = argparse.ArgumentParser(description='Filter events from LanceDB database or JSON file')
+    parser.add_argument('--file', type=str, default='aggregatedEvents/combined_events.json', help='Path to combined events JSON file (fallback)')
+    parser.add_argument('--db', type=str, default=None, help=f'Path to LanceDB database (defaults to ~/.luma-event-aggregation/data/events.db)')
     parser.add_argument('--location', type=str, help='City name to filter by (case-insensitive)')
     parser.add_argument('--dates', type=str, nargs='*', help='Specific date(s) to filter by (YYYY-MM-DD)')
     parser.add_argument('--weekdays', type=str, nargs='*', help='Weekday(s) to filter by (e.g., Monday Tuesday)')
@@ -83,7 +122,12 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    events = load_events(args.file)
+    
+    try:
+        events = load_events(file_path=args.file, db_path=args.db)
+    except FileNotFoundError as e:
+        print(f"❌ Error: {e}")
+        exit(1)
     
     # Handle --today flag
     if args.today:

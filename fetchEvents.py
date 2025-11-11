@@ -35,6 +35,7 @@ from collections import Counter
 import requests
 import googlemaps
 from dotenv import load_dotenv
+import lancedb
 
 # Load environment variables from .env file
 load_dotenv()
@@ -612,6 +613,14 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
     
     # Create output directory if it doesn't exist
     Path(output_dir).mkdir(parents=True, exist_ok=True)
+    
+    # Initialize LanceDB in home directory
+    home_dir = os.path.expanduser("~")
+    db_dir = os.path.join(home_dir, ".luma-event-aggregation", "data")
+    Path(db_dir).mkdir(parents=True, exist_ok=True)
+    db_path = os.path.join(db_dir, "events.db")
+    db = lancedb.connect(db_path)
+    print(f"🗄️  Connected to LanceDB at {db_path}")
 
     # Create a single aiohttp session for all requests
     async with aiohttp.ClientSession() as session:
@@ -680,7 +689,20 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
         sorted_events = sorted(all_events, key=sort_key)
         print(f"✓ Events sorted by start time")
 
-        # Save combined events
+        # Save to LanceDB
+        print("💾 Saving events to LanceDB...")
+        try:
+            if "events" in db.table_names():
+                print("  Overwriting existing 'events' table...")
+                db.drop_table("events")
+            
+            db.create_table("events", data=sorted_events)
+            print(f"✓ Saved {len(sorted_events)} events to LanceDB table 'events'")
+        except Exception as e:
+            print(f"⚠️  Error saving to LanceDB: {e}")
+            print("  Falling back to JSON file...")
+
+        # Save combined events (also keep JSON for compatibility)
         combined_output = os.path.join(output_dir, "combined_events.json")
         with open(combined_output, "w") as f:
             json.dump(sorted_events, f, indent=2)

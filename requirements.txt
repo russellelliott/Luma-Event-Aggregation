@@ -4,3 +4,4 @@ googlemaps
 dotenv
 beautifulsoup4
 google-genai
+lancedb
