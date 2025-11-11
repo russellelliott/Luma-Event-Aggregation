@@ -4,6 +4,20 @@ from zoneinfo import ZoneInfo
 import argparse
 import lancedb
 import os
+import numpy as np
+
+
+def convert_to_serializable(obj):
+    """Convert numpy types and other non-serializable objects to JSON-serializable types."""
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, (np.integer, np.floating)):
+        return obj.item()
+    elif isinstance(obj, dict):
+        return {k: convert_to_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [convert_to_serializable(item) for item in obj]
+    return obj
 
 def load_events(db_path=None):
     """Load events from LanceDB database.
@@ -166,15 +180,26 @@ if __name__ == "__main__":
         event_data = e.get('event', e) if isinstance(e, dict) else e
         timezone = event_data.get('timezone', 'America/Los_Angeles')
         
+        # Get the URL - it may be a full URL or just a slug
+        event_url = event_data.get('url', '')
+        if event_url and not event_url.startswith('http'):
+            full_url = f"https://luma.com/{event_url}"
+        else:
+            full_url = event_url
+        
         output.append({
             'name': event_data.get('name', 'Unnamed Event'),
             'city': get_city_from_event(event_data),
             'start': convert_to_local_time(event_data.get('start_at'), timezone),
             'end': convert_to_local_time(event_data.get('end_at'), timezone),
-            'url': f"https://luma.com/{event_data.get('url', '')}"
+            'description': event_data.get('description'),
+            'pricing': event_data.get('pricing'),
+            'url': full_url
         })
     
     # Print summary and JSON output
     print(f"Filtered {len(output)} events matching criteria.\n")
+    # Convert numpy types to JSON-serializable types
+    output = convert_to_serializable(output)
     print(json.dumps(output, indent=2))
 

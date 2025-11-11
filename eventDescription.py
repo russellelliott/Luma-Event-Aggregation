@@ -9,7 +9,7 @@ def get_luma_event_info(slug, delay=0.5, timeout=10, max_retries=3):
     Get event information from a Luma event slug.
     
     Args:
-        slug (str): The Luma event slug (e.g., 'l5vbx903')
+        slug (str): The Luma event slug (e.g., 'l5vbx903') or full Luma URL
         delay (float): Delay in seconds between requests to avoid rate limiting (default: 0.5)
         timeout (int): Request timeout in seconds (default: 10)
         max_retries (int): Maximum number of retries for 429/500 errors (default: 3)
@@ -23,6 +23,28 @@ def get_luma_event_info(slug, delay=0.5, timeout=10, max_retries=3):
         >>> print(info['name'])
         >>> print(info['latitude'], info['longitude'])
     """
+    # Validate and extract slug from URL
+    if not slug:
+        return {'error': 'No slug or URL provided'}
+    
+    # Check if it's a Luma URL (should start with 'lu.ma' or 'luma.com')
+    if 'lu.ma' not in slug and 'luma.com' not in slug and not slug.startswith('l'):
+        return {'error': f'Invalid Luma URL: {slug}'}
+    
+    # Extract the slug if it's a full URL
+    if slug.startswith('http'):
+        try:
+            # Handle URLs like https://lu.ma/event-slug or https://luma.com/...
+            from urllib.parse import urlparse
+            parsed = urlparse(slug)
+            # Get the path and remove leading slash
+            slug = parsed.path.lstrip('/')
+            # If path is empty or contains multiple segments, it's not a valid Luma event URL
+            if not slug or '/' in slug:
+                return {'error': f'Invalid Luma event URL format: {slug}'}
+        except Exception as e:
+            return {'error': f'Could not parse URL: {e}'}
+    
     url = f'https://lu.ma/{slug}'
     
     headers = {
