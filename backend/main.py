@@ -8,6 +8,21 @@ from filterEvents import load_events, apply_filters, convert_to_serializable
 
 app = FastAPI()
 
+# Load data at startup
+print("Loading data...")
+try:
+    CITY_SUMMARY_DF = load_city_summary()
+    # Sort by duration_seconds (ascending)
+    if 'duration_seconds' in CITY_SUMMARY_DF.columns:
+        CITY_SUMMARY_DF = CITY_SUMMARY_DF.sort_values(by='duration_seconds', ascending=True)
+    
+    ALL_EVENTS = load_events()
+    print("Data loaded successfully.")
+except Exception as e:
+    print(f"Error loading data: {e}")
+    CITY_SUMMARY_DF = None
+    ALL_EVENTS = []
+
 def clean_nans(data):
     """Recursively replace NaN values with None in a dictionary or list."""
     if isinstance(data, list):
@@ -21,13 +36,11 @@ def clean_nans(data):
 @app.get("/cities")
 def get_cities():
     try:
-        df = load_city_summary()
-        # Sort by duration_seconds (ascending)
-        if 'duration_seconds' in df.columns:
-            df = df.sort_values(by='duration_seconds', ascending=True)
+        if CITY_SUMMARY_DF is None:
+            return {"error": "City summary data not loaded"}
         
         # Convert to list of dictionaries
-        result = df.to_dict(orient='records')
+        result = CITY_SUMMARY_DF.to_dict(orient='records')
         return clean_nans(convert_to_serializable(result))
     except Exception as e:
         return {"error": str(e)}
@@ -41,9 +54,8 @@ def get_events(
     audience: Optional[List[str]] = Query(None)
 ):
     try:
-        events = load_events()
         filtered_events = apply_filters(
-            events, 
+            ALL_EVENTS, 
             location=location, 
             dates=dates, 
             weekdays=weekdays, 
