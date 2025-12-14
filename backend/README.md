@@ -50,12 +50,17 @@ Start and End times (start_at, end_at) appear to be in standard UTC timestamp. F
    The API will be available at `http://localhost:8000`.
 
    # Filter by weekdays
+   ```
    python3 filterEvents.py --weekdays Friday Saturday
+   ```
    
    # Filter by event type and audience (requires running classifyEvents.py first)
+   ```
    python3 filterEvents.py --event-type hackathon workshop --audience job_seekers
-   
+   ```
+
    # Combine filters
+   ```
    python3 filterEvents.py --location "San Francisco" --weekdays Friday --event-type networking
    ```
 
