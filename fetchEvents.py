@@ -689,6 +689,12 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
         sorted_events = sorted(all_events, key=sort_key)
         print(f"✓ Events sorted by start time")
 
+        # Initialize classification fields
+        print("📝 Initializing classification fields...")
+        for event in sorted_events:
+            event['event_type'] = None
+            event['audience'] = None
+
         # Save to LanceDB
         print("💾 Saving events to LanceDB...")
         try:

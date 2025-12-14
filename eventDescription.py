@@ -27,25 +27,29 @@ def get_luma_event_info(slug, delay=0.5, timeout=10, max_retries=3):
     if not slug:
         return {'error': 'No slug or URL provided'}
     
-    # Check if it's a Luma URL (should start with 'lu.ma' or 'luma.com')
-    if 'lu.ma' not in slug and 'luma.com' not in slug and not slug.startswith('l'):
-        return {'error': f'Invalid Luma URL: {slug}'}
+    url = None
     
-    # Extract the slug if it's a full URL
+    # Check if it's a URL
     if slug.startswith('http'):
-        try:
-            # Handle URLs like https://lu.ma/event-slug or https://luma.com/...
-            from urllib.parse import urlparse
-            parsed = urlparse(slug)
-            # Get the path and remove leading slash
-            slug = parsed.path.lstrip('/')
-            # If path is empty or contains multiple segments, it's not a valid Luma event URL
-            if not slug or '/' in slug:
-                return {'error': f'Invalid Luma event URL format: {slug}'}
-        except Exception as e:
-            return {'error': f'Could not parse URL: {e}'}
-    
-    url = f'https://lu.ma/{slug}'
+        if 'lu.ma' in slug or 'luma.com' in slug:
+            try:
+                # Handle URLs like https://lu.ma/event-slug or https://luma.com/...
+                from urllib.parse import urlparse
+                parsed = urlparse(slug)
+                # Get the path and remove leading slash
+                path_slug = parsed.path.lstrip('/')
+                # If path is empty, it's not a valid Luma event URL
+                if not path_slug:
+                    return {'error': f'Invalid Luma event URL format: {slug}'}
+                url = f'https://lu.ma/{path_slug}'
+            except Exception as e:
+                return {'error': f'Could not parse URL: {e}'}
+        else:
+            # Use the full URL for non-Luma events
+            url = slug
+    else:
+        # If it's not a URL, we assume it's a slug
+        url = f'https://lu.ma/{slug}'
     
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
