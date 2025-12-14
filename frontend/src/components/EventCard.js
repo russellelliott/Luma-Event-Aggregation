@@ -101,6 +101,7 @@ const EventCard = ({ events }) => {
           const location = getLocation(event);
           const priceLabel = getPriceLabel(ticket_info);
           const eventType = event.event_type ? event.event_type.replace(/_/g, ' ') : 'General Event';
+          const audience = event.audience ? event.audience.replace(/_/g, ' ') : 'General Audience';
 
           return (
             <div
@@ -148,10 +149,18 @@ const EventCard = ({ events }) => {
 
                 </div>
 
-                {/* Event Type / Tag */}
-                <div className="flex items-center space-x-2 text-xs font-medium text-indigo-700 bg-indigo-100 rounded-full py-1 px-3 w-fit mb-4">
-                    <Tag className="w-3 h-3" />
-                    <span className="uppercase">{eventType}</span>
+                {/* Tags */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {/* Event Type */}
+                  <div className="flex items-center space-x-1 text-xs font-medium text-indigo-700 bg-indigo-100 rounded-full py-1 px-3">
+                      <Tag className="w-3 h-3" />
+                      <span className="uppercase">{eventType}</span>
+                  </div>
+                  {/* Audience */}
+                  <div className="flex items-center space-x-1 text-xs font-medium text-emerald-700 bg-emerald-100 rounded-full py-1 px-3">
+                      <Users className="w-3 h-3" />
+                      <span className="uppercase">{audience}</span>
+                  </div>
                 </div>
                 
                 {/* Event Description (Truncated) */}
