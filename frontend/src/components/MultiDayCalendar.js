@@ -100,34 +100,34 @@ export default function MultiDayCalendar({ selectedDates, onDatesChange }) {
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-6 bg-white">
-      <div className="flex items-center gap-3 mb-6">
-        <Calendar className="w-6 h-6 text-blue-500" />
-        <h1 className="text-2xl font-bold text-gray-800">Select Multiple Days</h1>
-      </div>
-
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 mb-6">
+    <div className="flex flex-col gap-6">
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
         <div className="flex items-center justify-between mb-6">
-          <button
-            onClick={previousMonth}
-            className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            ← Prev
-          </button>
-          <h2 className="text-xl font-semibold text-gray-800">
-            {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
-          </h2>
-          <button
-            onClick={nextMonth}
-            className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            Next →
-          </button>
+          <div className="flex items-center gap-3">
+            <Calendar className="w-6 h-6 text-blue-500" />
+            <h2 className="text-xl font-bold text-gray-800">
+              {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+            </h2>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={previousMonth}
+              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
+            >
+              ← Prev
+            </button>
+            <button
+              onClick={nextMonth}
+              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
+            >
+              Next →
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-7 gap-2 mb-2">
           {dayNames.map(day => (
-            <div key={day} className="h-10 flex items-center justify-center text-sm font-semibold text-gray-600">
+            <div key={day} className="h-10 flex items-center justify-center text-sm font-semibold text-gray-500 uppercase tracking-wider">
               {day}
             </div>
           ))}
@@ -138,46 +138,40 @@ export default function MultiDayCalendar({ selectedDates, onDatesChange }) {
         </div>
       </div>
 
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-800">
-            Selected Dates ({selectedDates.length})
-          </h3>
-          {selectedDates.length > 0 && (
+      {selectedDates.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-800">
+              Selected Dates ({selectedDates.length})
+            </h3>
             <button
               onClick={clearAll}
               className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
             >
               Clear All
             </button>
-          )}
-        </div>
+          </div>
 
-        {selectedDates.length === 0 ? (
-          <p className="text-gray-500 text-sm">
-            No dates selected. Click on calendar days to select them.
-          </p>
-        ) : (
           <div className="flex flex-wrap gap-2">
             {selectedDates
               .sort((a, b) => a - b)
               .map((date, index) => (
                 <div
                   key={index}
-                  className="flex items-center gap-2 bg-blue-100 text-blue-800 px-3 py-2 rounded-lg text-sm"
+                  className="flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-sm border border-blue-100"
                 >
                   <span>{formatDate(date)}</span>
                   <button
                     onClick={() => removeDate(date)}
-                    className="hover:bg-blue-200 rounded p-0.5 transition-colors"
+                    className="hover:bg-blue-100 rounded p-0.5 transition-colors"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-3 h-3" />
                   </button>
                 </div>
               ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

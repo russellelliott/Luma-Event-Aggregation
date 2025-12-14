@@ -75,7 +75,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto space-y-8">
+      <div className="max-w-7xl mx-auto space-y-8">
         <header className="text-center mb-12">
           <h1 className="text-3xl font-bold text-gray-900">Luma Event Aggregation</h1>
           <p className="mt-2 text-gray-600">Find events near you</p>
@@ -88,19 +88,21 @@ function App() {
           onCityChange={setSelectedCityIndex}
         />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="space-y-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* Sidebar - Filters */}
+          <div className="lg:col-span-4 space-y-6">
             <ClassificationFilter 
               selectedFilters={selectedFilters}
               onFilterChange={handleFilterChange}
             />
-          </div>
-          
-          <div className="space-y-8">
             <DayPicker 
               selectedDays={selectedDays}
               onDaysChange={setSelectedDays}
             />
+          </div>
+          
+          {/* Main Content - Calendar */}
+          <div className="lg:col-span-8">
             <MultiDayCalendar 
               selectedDates={selectedDates}
               onDatesChange={setSelectedDates}
