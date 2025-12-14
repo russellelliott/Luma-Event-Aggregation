@@ -173,11 +173,39 @@ def filter_by_audience(events, audiences):
             filtered.append(e)
     return filtered
 
+def filter_by_dates_or_weekdays(events, dates, weekdays, pacific_tz):
+    if not dates and not weekdays:
+        return events
+
+    date_set = set(dates) if dates else set()
+    weekdays_set = set(day.capitalize() for day in weekdays) if weekdays else set()
+    
+    filtered = []
+    for e in events:
+        # Handle both nested and flat event structures
+        event_data = e.get('event', e) if isinstance(e, dict) else e
+        start_at = event_data.get('start_at')
+        if not start_at:
+            continue
+            
+        event_date, event_weekday = get_local_date_and_weekday(start_at, pacific_tz)
+        
+        match_date = event_date.isoformat() in date_set if dates else False
+        match_weekday = event_weekday in weekdays_set if weekdays else False
+        
+        if match_date or match_weekday:
+            filtered.append(e)
+            
+    return filtered
+
 def apply_filters(events, location=None, dates=None, weekdays=None, event_types=None, audiences=None):
     pacific_tz = ZoneInfo("America/Los_Angeles")
     events = filter_by_location(events, location)
-    events = filter_by_dates(events, dates, pacific_tz)
-    events = filter_by_weekdays(events, weekdays, pacific_tz)
+    
+    # Apply dates and weekdays with OR logic if either is present
+    if dates or weekdays:
+        events = filter_by_dates_or_weekdays(events, dates, weekdays, pacific_tz)
+        
     events = filter_by_event_type(events, event_types)
     events = filter_by_audience(events, audiences)
     return events
