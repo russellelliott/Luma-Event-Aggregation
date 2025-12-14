@@ -8,8 +8,7 @@ const EVENT_TYPES = [
   { id: 'networking', label: 'Networking' },
   { id: 'conference', label: 'Conference' },
   { id: 'demo_day', label: 'Demo Day' },
-  { id: 'panel_discussion', label: 'Panel Discussion' },
-  { id: 'social', label: 'Social' }
+  { id: 'panel_discussion', label: 'Panel Discussion' }
 ];
 
 const AUDIENCE_CATEGORIES = [
