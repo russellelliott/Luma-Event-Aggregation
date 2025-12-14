@@ -37,14 +37,8 @@ def main():
         # Handle NaN values if any (though they should be populated)
         df = df.sort_values(by='duration_seconds', ascending=True)
         
-        # Select relevant columns for display
-        display_cols = ['city', 'event_count', 'duration_text', 'distance_text']
-        
-        # Check if columns exist (in case of schema changes)
-        available_cols = [c for c in display_cols if c in df.columns]
-        
-        # Convert to list of dictionaries
-        result = df[available_cols].to_dict(orient='records')
+        # Convert to list of dictionaries (output all columns)
+        result = df.to_dict(orient='records')
         
         print(json.dumps(result, indent=2))
         
