@@ -12,6 +12,7 @@ app = FastAPI()
 print("Loading data...")
 try:
     CITY_SUMMARY_DF = load_city_summary()
+    print(f"📊 Loaded {len(CITY_SUMMARY_DF)} cities from LanceDB")
     # Sort by duration_seconds (ascending)
     if 'duration_seconds' in CITY_SUMMARY_DF.columns:
         CITY_SUMMARY_DF = CITY_SUMMARY_DF.sort_values(by='duration_seconds', ascending=True)
