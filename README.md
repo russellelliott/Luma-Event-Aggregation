@@ -97,6 +97,8 @@ https://claude.ai/chat/37dc1455-86fe-494c-bd60-2528fb09190d
 ### Fleshing out the idea
 https://chatgpt.com/c/68e7faa9-fa48-8329-932d-55d4b2b41238
 
+https://www.perplexity.ai/search/i-have-this-repo-which-gets-a-UPZPZKtHQTWfFyDOkozp5w
+
 ### Perplexity API
 https://docs.perplexity.ai/getting-started/overview
 
