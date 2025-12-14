@@ -2,10 +2,21 @@ from fastapi import FastAPI, Query
 from typing import List, Optional
 import json
 import os
+import math
 from listCities import load_city_summary
 from filterEvents import load_events, apply_filters, convert_to_serializable
 
 app = FastAPI()
+
+def clean_nans(data):
+    """Recursively replace NaN values with None in a dictionary or list."""
+    if isinstance(data, list):
+        return [clean_nans(item) for item in data]
+    elif isinstance(data, dict):
+        return {k: clean_nans(v) for k, v in data.items()}
+    elif isinstance(data, float) and math.isnan(data):
+        return None  # Convert NaN to JSON-compliant null
+    return data
 
 @app.get("/cities")
 def get_cities():
@@ -17,7 +28,7 @@ def get_cities():
         
         # Convert to list of dictionaries
         result = df.to_dict(orient='records')
-        return convert_to_serializable(result)
+        return clean_nans(convert_to_serializable(result))
     except Exception as e:
         return {"error": str(e)}
 
@@ -39,7 +50,7 @@ def get_events(
             event_types=event_type, 
             audiences=audience
         )
-        return convert_to_serializable(filtered_events)
+        return clean_nans(convert_to_serializable(filtered_events))
     except Exception as e:
         return {"error": str(e)}
 

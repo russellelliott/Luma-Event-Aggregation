@@ -269,6 +269,42 @@ def deduplicate_events(events):
     return deduplicated
 
 
+def get_event_coordinates(event_data):
+    """
+    Tries to find coordinates in 3 different places.
+    Returns (lat, lon) or (None, None).
+    """
+    lat, lon = None, None
+
+    # Check 1: The 'coordinate' object directly on the event (First JSON example)
+    # This is usually the most accurate for Luma events
+    if event_data.get('event') and event_data['event'].get('coordinate'):
+        coord = event_data['event']['coordinate']
+        lat = coord.get('latitude')
+        lon = coord.get('longitude')
+
+    # Check 2: The 'location' object (Second JSON example / Schema.org style)
+    if lat is None and event_data.get('location'):
+        loc = event_data['location']
+        
+        # Sometimes it's directly in location
+        lat = loc.get('latitude')
+        lon = loc.get('longitude')
+        
+        # Sometimes it's nested in 'geo'
+        if lat is None and loc.get('geo'):
+            lat = loc['geo'].get('latitude')
+            lon = loc['geo'].get('longitude')
+
+    # Check 3: Fallback to Geo Address Info (if available in API response)
+    if lat is None and event_data.get('event', {}).get('geo_address_info'):
+        geo = event_data['event']['geo_address_info']
+        lat = geo.get('latitude')
+        lon = geo.get('longitude')
+
+    return lat, lon
+
+
 def extract_city(item, gmaps_client=None):
     """Extract city name, preferring city_state format for better Google Maps accuracy.
     
@@ -281,23 +317,25 @@ def extract_city(item, gmaps_client=None):
     """
     ev = item.get("event", {})
     geo = ev.get("geo_address_info", {}) if isinstance(ev.get("geo_address_info", {}), dict) else {}
+    
+    vague_cities = ["California", "United States", "USA", "Register to See Address"]
 
     # PREFER city_state like "San Francisco, California" for better Google Maps accuracy
     city_state = geo.get("city_state")
-    if city_state:
+    if city_state and city_state not in vague_cities:
         return city_state
 
     # Fallback to calendar geo_city with state if available
     cal_city = item.get("calendar", {}).get("geo_city")
     cal_region = item.get("calendar", {}).get("geo_region_abbrev") or item.get("calendar", {}).get("geo_region")
-    if cal_city and cal_region:
-        return f"{cal_city}, {cal_region}"
-    if cal_city:
+    if cal_city and cal_city not in vague_cities:
+        if cal_region:
+            return f"{cal_city}, {cal_region}"
         return cal_city
 
     # Fallback to explicit city field (but this lacks state info)
     city = geo.get("city")
-    if city:
+    if city and city not in vague_cities:
         # Try to add state if available
         state = geo.get("region") or geo.get("region_abbrev")
         if state:
@@ -306,9 +344,7 @@ def extract_city(item, gmaps_client=None):
 
     # Last resort: Use reverse geocoding if coordinates are available
     if gmaps_client:
-        coordinate = ev.get("coordinate", {})
-        lat = coordinate.get("latitude")
-        lng = coordinate.get("longitude")
+        lat, lng = get_event_coordinates(item)
         
         if lat is not None and lng is not None:
             try:
@@ -331,6 +367,14 @@ def extract_city(item, gmaps_client=None):
                         return city_name
             except Exception as e:
                 print(f"    ⚠️  Reverse geocoding failed for coordinates ({lat}, {lng}): {e}")
+    
+    # If we still have a vague city name, return it as a last resort
+    if city:
+        return city
+    if city_state:
+        return city_state
+    if cal_city:
+        return cal_city
 
     return "Unknown"
 
@@ -452,17 +496,21 @@ def enrich_event_with_city(event, gmaps_client):
     geo = ev.get("geo_address_info", {}) if isinstance(ev.get("geo_address_info", {}), dict) else {}
     
     # Check if city data is already present
-    has_city_data = (
-        geo.get("city_state") or 
-        geo.get("city") or 
-        event.get("calendar", {}).get("geo_city")
+    # We consider "California", "United States", "USA" as vague/invalid and try to improve it
+    current_city = geo.get("city")
+    current_city_state = geo.get("city_state")
+    cal_city = event.get("calendar", {}).get("geo_city")
+    vague_cities = ["California", "United States", "USA", "Register to See Address"]
+    
+    has_valid_city_data = (
+        (current_city_state and not any(v in current_city_state for v in vague_cities if v == current_city_state)) or 
+        (current_city and current_city not in vague_cities) or 
+        (cal_city and cal_city not in vague_cities)
     )
     
-    # If no city data, try to add it via reverse geocoding
-    if not has_city_data and gmaps_client:
-        coordinate = ev.get("coordinate", {})
-        lat = coordinate.get("latitude")
-        lng = coordinate.get("longitude")
+    # If no city data OR it's vague, try to add it via reverse geocoding
+    if not has_valid_city_data and gmaps_client:
+        lat, lng = get_event_coordinates(event)
         
         if lat is not None and lng is not None:
             try:
