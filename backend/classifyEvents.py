@@ -13,7 +13,7 @@ LABELING_PROMPT = """Analyze this event and assign labels:
 </event>
 
 Task 1: Select ONE event type:
-[career_fair, hackathon, workshop, networking, conference, demo_day, panel_discussion, social]
+[career_fair, hackathon, workshop, networking, conference, demo_day, panel_discussion]
 
 Task 2: Select ONE audience category:
 - "job_seekers": For students, recent grads, engineers, anyone looking for jobs/internships, career development
@@ -23,6 +23,12 @@ Task 2: Select ONE audience category:
 Return ONLY JSON:
 {{"event_type": "...", "audience": "..."}}
 """
+
+VALID_EVENT_TYPES = {
+    'career_fair', 'hackathon', 'workshop', 'networking', 
+    'conference', 'demo_day', 'panel_discussion'
+}
+VALID_AUDIENCE_TYPES = {'job_seekers', 'founder_investor', 'general'}
 
 def load_events_from_lancedb(db_path=None):
     """Load events from LanceDB database."""
@@ -42,8 +48,8 @@ def load_events_from_lancedb(db_path=None):
     print(f"📊 Loaded {len(events)} events from LanceDB")
     return events
 
-def classify_event(event, model="phi3:3.8b-mini-128k-instruct-q4_K_M"):
-    """Classify a single event using Ollama."""
+def classify_event(event, model="phi3:3.8b-mini-128k-instruct-q4_K_M", max_retries=3):
+    """Classify a single event using Ollama with retries."""
     name = event.get('name', 'Unknown Event')
     description = event.get('description', '')
     
@@ -60,22 +66,33 @@ def classify_event(event, model="phi3:3.8b-mini-128k-instruct-q4_K_M"):
         "format": "json"
     }
     
-    try:
-        response = requests.post("http://localhost:11434/api/generate", json=payload)
-        response.raise_for_status()
-        result = response.json()
-        response_text = result.get('response', '{}')
-        
+    for attempt in range(max_retries):
         try:
-            classification = json.loads(response_text)
-            return classification
-        except json.JSONDecodeError:
-            print(f"⚠️ Failed to parse JSON for event: {name}")
+            response = requests.post("http://localhost:11434/api/generate", json=payload)
+            response.raise_for_status()
+            result = response.json()
+            response_text = result.get('response', '{}')
+            
+            try:
+                classification = json.loads(response_text)
+                event_type = classification.get('event_type')
+                audience = classification.get('audience')
+                
+                if (event_type and event_type.lower() in VALID_EVENT_TYPES and 
+                    audience and audience.lower() in VALID_AUDIENCE_TYPES):
+                    return classification
+                else:
+                    print(f"⚠️ Invalid classification (Type: {event_type}, Audience: {audience}) for event '{name}'. Retrying ({attempt + 1}/{max_retries})...")
+                    
+            except json.JSONDecodeError:
+                print(f"⚠️ Failed to parse JSON for event: {name}. Retrying ({attempt + 1}/{max_retries})...")
+                
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Error calling Ollama: {e}")
             return None
             
-    except requests.exceptions.RequestException as e:
-        print(f"❌ Error calling Ollama: {e}")
-        return None
+    print(f"❌ Failed to classify event '{name}' after {max_retries} attempts.")
+    return None
 
 def save_events_to_lancedb(events, db_path=None):
     """Save events back to LanceDB, overwriting the existing table."""
@@ -96,9 +113,13 @@ def process_event_wrapper(args):
     # Handle both nested and flat event structures
     event = event_entry.get('event', event_entry) if isinstance(event_entry, dict) else event_entry
     
-    # Skip if already classified
-    if event.get('event_type') and event.get('audience'):
-        print(f"Skipping {index+1}/{total}: {event.get('name', 'Unknown')} (Already classified)")
+    # Skip if already classified AND valid
+    current_type = event.get('event_type')
+    current_audience = event.get('audience')
+    
+    if (current_type and current_type.lower() in VALID_EVENT_TYPES and 
+        current_audience and current_audience.lower() in VALID_AUDIENCE_TYPES):
+        print(f"Skipping {index+1}/{total}: {event.get('name', 'Unknown')} (Already classified & valid)")
         return False
 
     print(f"Processing {index+1}/{total}: {event.get('name', 'Unknown')}\n  URL: {event.get('url', 'No URL')}")
