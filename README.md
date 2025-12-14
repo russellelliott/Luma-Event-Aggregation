@@ -61,9 +61,9 @@ Start and End times (start_at, end_at) appear to be in standard UTC timestamp. F
 
 ## Output Files
 
-After running `fetchEvents.py`, you'll get:
-- `aggregatedEvents/combined_events.json` — All events from all slugs, sorted by start time
-- `aggregatedEvents/city_summary.json` — Event counts per city **with comprehensive distance/time data**
+After running `fetchEvents.py`, data is saved to LanceDB (`~/.luma-event-aggregation/data/events.db`):
+- Table `events` — All events from all slugs, sorted by start time
+- Table `city_summary` — Event counts per city **with comprehensive distance/time data**
 
 ### City Summary Data Structure
 Each city in the summary includes:

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Fetch and aggregate Luma events from multiple slugs into a single combined JSON file.
+"""Fetch and aggregate Luma events from multiple slugs into LanceDB.
 
 This script:
 1. Automatically detects your location from IP address
 2. Fetches events from multiple Luma slugs in parallel 
-3. Combines all events into a single JSON file
+3. Saves all events into a LanceDB database
 4. Generates city summaries with Google Maps distance/time data (REQUIRED)
 
 REQUIREMENTS:
@@ -15,9 +15,9 @@ Usage:
   export GOOGLE_MAPS_API_KEY="your_api_key_here"
   python3 fetchEvents.py
 
-The script will create:
-- aggregatedEvents/combined_events.json (all events sorted by start_at)
-- aggregatedEvents/city_summary.json (city counts with detailed distance/time data from Google Maps)
+The script will save to LanceDB (~/.luma-event-aggregation/data/events.db):
+- Table 'events' (all events sorted by start_at)
+- Table 'city_summary' (city counts with detailed distance/time data from Google Maps)
 
 Distance/time data includes:
 - Text format (e.g., "15.2 miles", "23 minutes")
@@ -594,25 +594,21 @@ def generate_city_summary(events, user_location):
 
 
 async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south, west, 
-                                   user_location, output_dir="aggregatedEvents"):
+                                   user_location):
     """
-    Fetch events for multiple slugs and calendar APIs concurrently and combine into single JSON file.
+    Fetch events for multiple slugs and calendar APIs concurrently and save to LanceDB.
     
     Args:
         slugs: List of Luma calendar slugs to fetch from
         calendar_configs: List of dicts with 'calendar_api_id' and 'name' keys for calendar API endpoints
         east, north, south, west: Bounding box coordinates  
         user_location: User's location string (required for Google Maps distance calculations)
-        output_dir: Directory to save output files
         
     Raises:
         ValueError: If user_location is not provided or Google Maps API is not configured
     """
     if not user_location:
         raise ValueError("user_location is required for generating city summary with distance/time data")
-    
-    # Create output directory if it doesn't exist
-    Path(output_dir).mkdir(parents=True, exist_ok=True)
     
     # Initialize LanceDB in home directory
     home_dir = os.path.expanduser("~")
@@ -808,9 +804,9 @@ async def main():
         )
         
         print(f"\n🎉 Successfully processed {total_events} total events!")
-        print("📁 Output files:")
-        print("   - aggregatedEvents/combined_events.json")
-        print("   - aggregatedEvents/city_summary.json")
+        print("📁 Data saved to LanceDB (~/.luma-event-aggregation/data/events.db):")
+        print("   - Table 'events'")
+        print("   - Table 'city_summary'")
         print("\n💡 Use filterEvents.py to filter the combined events by location, date, or weekday")
         
     except ValueError as e:
