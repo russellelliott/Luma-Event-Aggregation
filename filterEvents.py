@@ -90,16 +90,21 @@ def convert_to_local_time(utc_iso_str, timezone_str="America/Los_Angeles"):
     dt_local = dt_utc.astimezone(local_tz)
     return dt_local.strftime("%Y-%m-%d %I:%M %p %Z")
 
-def filter_by_location(events, location=None):
-    if not location:
+def filter_by_location(events, locations=None):
+    if not locations:
         return events
-    location_lower = location.lower()
+    
+    # Handle single string input (backward compatibility)
+    if isinstance(locations, str):
+        locations = [locations]
+        
+    locations_lower = set(loc.lower() for loc in locations)
     filtered = []
     for e in events:
         # Handle both nested and flat event structures
         event_data = e.get('event', e) if isinstance(e, dict) else e
         city = get_city_from_event(event_data)
-        if city and city.lower() == location_lower:
+        if city and city.lower() in locations_lower:
             filtered.append(e)
     return filtered
 
@@ -173,7 +178,7 @@ def apply_filters(events, location=None, dates=None, weekdays=None, event_types=
 def parse_args():
     parser = argparse.ArgumentParser(description='Filter events from LanceDB database')
     parser.add_argument('--db', type=str, default=None, help='Path to LanceDB database (defaults to ~/.luma-event-aggregation/data/events.db)')
-    parser.add_argument('--location', type=str, help='City name to filter by (case-insensitive)')
+    parser.add_argument('--location', type=str, nargs='*', help='City name(s) to filter by (case-insensitive)')
     parser.add_argument('--dates', type=str, nargs='*', help='Specific date(s) to filter by (YYYY-MM-DD)')
     parser.add_argument('--weekdays', type=str, nargs='*', help='Weekday(s) to filter by (e.g., Monday Tuesday)')
     parser.add_argument('--event-type', type=str, nargs='*', help='Event type(s) to filter by (e.g., hackathon workshop)')
