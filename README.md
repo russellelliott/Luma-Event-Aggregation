@@ -17,23 +17,27 @@ Start and End times (start_at, end_at) appear to be in standard UTC timestamp. F
 
 2. **Fetch and aggregate events** (location will be detected automatically):
    ```bash
+   cd backend
    python3 -m pip install -r requirements.txt
    python3 fetchEvents.py
    ```
 
 3. **List available cities** (sorted by travel time):
    ```bash
+   # From backend directory
    python3 listCities.py
    ```
 
 4. **Classify events** (requires Ollama running locally):
    ```bash
+   # From backend directory
    # Classifies events by type and audience using local LLM
    python3 classifyEvents.py
    ```
 
 5. **Filter events** using `filterEvents.py`:
    ```bash
+   # From backend directory
    # Filter by location(s) and date
    python3 filterEvents.py --location "Mountain View" "San Francisco" --dates 2025-10-10 2025-10-11
    
