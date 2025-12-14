@@ -21,7 +21,13 @@ Start and End times (start_at, end_at) appear to be in standard UTC timestamp. F
    python3 fetchEvents.py
    ```
 
-3. **Filter events** using `filterEvents.py`:
+3. **Classify events** (requires Ollama running locally):
+   ```bash
+   # Classifies events by type and audience using local LLM
+   python3 classifyEvents.py
+   ```
+
+4. **Filter events** using `filterEvents.py`:
    ```bash
    # Filter by location and date
    python3 filterEvents.py --location "Mountain View" --dates 2025-10-10 2025-10-11
@@ -29,9 +35,29 @@ Start and End times (start_at, end_at) appear to be in standard UTC timestamp. F
    # Filter by weekdays
    python3 filterEvents.py --weekdays Friday Saturday
    
+   # Filter by event type and audience (requires running classifyEvents.py first)
+   python3 filterEvents.py --event-type hackathon workshop --audience job_seekers
+   
    # Combine filters
-   python3 filterEvents.py --location "San Francisco" --weekdays Friday --dates 2025-10-10
+   python3 filterEvents.py --location "San Francisco" --weekdays Friday --event-type networking
    ```
+
+### Available Classification Options
+
+**Event Types:**
+- `career_fair`
+- `hackathon`
+- `workshop`
+- `networking`
+- `conference`
+- `demo_day`
+- `panel_discussion`
+- `social`
+
+**Audience Categories:**
+- `job_seekers`
+- `founder_investor`
+- `general`
 
 ## Output Files
 
@@ -54,7 +80,8 @@ Each city in the summary includes:
 
 - **Automatic Location Detection**: Uses ipinfo.io to detect your location from IP address
 - **fetchEvents.py**: Fetches events from multiple Luma calendar slugs in parallel, combines them into a single sorted list, and generates a comprehensive city summary with **mandatory** Google Maps distance/time data
-- **filterEvents.py**: Filters the combined events by location, specific dates, and/or weekdays
+- **classifyEvents.py**: Uses a local Ollama LLM to analyze event descriptions and assign an `event_type` (e.g., hackathon, workshop, networking) and `audience` (e.g., job_seekers, founder_investor). Supports parallel processing for speed.
+- **filterEvents.py**: Filters the combined events by location, specific dates, weekdays, event type, and/or audience.
 
 No intermediate JSON files are created per slug - everything is processed in memory and output as a single combined file.
 
