@@ -22,13 +22,20 @@ Start and End times (start_at, end_at) appear to be in standard UTC timestamp. F
    python3 fetchEvents.py
    ```
 
-3. **List available cities** (sorted by travel time):
+3. **Generate event descriptions** (scrapes detailed info):
    ```bash
    # From backend directory
-   python3 listCities.py
+   # Fetches full descriptions and pricing for events
+   python3 generateEventDescriptions.py
+   ```
+5. **Classify events** (requires Ollama running locally):
+   ```bash
+   # From backend directory
+   # Classifies events by type and audience using local LLM
+   python3 classifyEvents.py
    ```
 
-4. **Classify events** (requires Ollama running locally):
+6. **Filter events** using `filterEvents.py`:ng locally):
    ```bash
    # From backend directory
    # Classifies events by type and audience using local LLM
@@ -62,6 +69,16 @@ Start and End times (start_at, end_at) appear to be in standard UTC timestamp. F
    The API will be available at `http://localhost:8000`.
    - **List Cities**: `GET /cities`
    - **Filter Events**: `GET /events` (supports query params: `location`, `dates`, `weekdays`, `event-type`, `audience`)
+
+## Automated Pipeline
+
+To run the entire data collection and processing pipeline (fetch, generate descriptions, and classify) in one go:
+
+```bash
+cd backend
+chmod +x run_pipeline.sh
+./run_pipeline.sh
+```
 
 ### Available Classification Options
 
