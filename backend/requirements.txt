@@ -6,3 +6,5 @@ beautifulsoup4
 google-genai
 lancedb
 pandas
+fastapi
+uvicorn

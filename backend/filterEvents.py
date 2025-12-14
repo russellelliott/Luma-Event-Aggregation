@@ -10,7 +10,7 @@ import numpy as np
 def convert_to_serializable(obj):
     """Convert numpy types and other non-serializable objects to JSON-serializable types."""
     if isinstance(obj, np.ndarray):
-        return obj.tolist()
+        return convert_to_serializable(obj.tolist())
     elif isinstance(obj, (np.integer, np.floating)):
         return obj.item()
     elif isinstance(obj, dict):

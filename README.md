@@ -51,6 +51,18 @@ Start and End times (start_at, end_at) appear to be in standard UTC timestamp. F
    python3 filterEvents.py --location "San Francisco" --weekdays Friday --event-type networking
    ```
 
+6. **Run the API Server**:
+   ```bash
+   # From backend directory
+   python3 main.py
+   # OR
+   uvicorn main:app --reload
+   ```
+   
+   The API will be available at `http://localhost:8000`.
+   - **List Cities**: `GET /cities`
+   - **Filter Events**: `GET /events` (supports query params: `location`, `dates`, `weekdays`, `event-type`, `audience`)
+
 ### Available Classification Options
 
 **Event Types:**
