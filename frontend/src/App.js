@@ -108,10 +108,11 @@ function App() {
               selectedDates={selectedDates}
               onDatesChange={setSelectedDates}
             />
-            <div className="mt-8">
-              <EventCard events={events} />
-            </div>
           </div>
+        </div>
+
+        <div className="mt-12">
+          <EventCard events={events} />
         </div>
       </div>
     </div>
