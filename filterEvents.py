@@ -135,11 +135,39 @@ def filter_by_weekdays(events, weekdays, pacific_tz):
             filtered.append(e)
     return filtered
 
-def apply_filters(events, location=None, dates=None, weekdays=None):
+def filter_by_event_type(events, event_types):
+    if not event_types:
+        return events
+    event_types_set = set(t.lower() for t in event_types)
+    filtered = []
+    for e in events:
+        # Handle both nested and flat event structures
+        event_data = e.get('event', e) if isinstance(e, dict) else e
+        event_type = event_data.get('event_type')
+        if event_type and event_type.lower() in event_types_set:
+            filtered.append(e)
+    return filtered
+
+def filter_by_audience(events, audiences):
+    if not audiences:
+        return events
+    audiences_set = set(a.lower() for a in audiences)
+    filtered = []
+    for e in events:
+        # Handle both nested and flat event structures
+        event_data = e.get('event', e) if isinstance(e, dict) else e
+        audience = event_data.get('audience')
+        if audience and audience.lower() in audiences_set:
+            filtered.append(e)
+    return filtered
+
+def apply_filters(events, location=None, dates=None, weekdays=None, event_types=None, audiences=None):
     pacific_tz = ZoneInfo("America/Los_Angeles")
     events = filter_by_location(events, location)
     events = filter_by_dates(events, dates, pacific_tz)
     events = filter_by_weekdays(events, weekdays, pacific_tz)
+    events = filter_by_event_type(events, event_types)
+    events = filter_by_audience(events, audiences)
     return events
 
 def parse_args():
@@ -148,6 +176,8 @@ def parse_args():
     parser.add_argument('--location', type=str, help='City name to filter by (case-insensitive)')
     parser.add_argument('--dates', type=str, nargs='*', help='Specific date(s) to filter by (YYYY-MM-DD)')
     parser.add_argument('--weekdays', type=str, nargs='*', help='Weekday(s) to filter by (e.g., Monday Tuesday)')
+    parser.add_argument('--event-type', type=str, nargs='*', help='Event type(s) to filter by (e.g., hackathon workshop)')
+    parser.add_argument('--audience', type=str, nargs='*', help='Audience(s) to filter by (e.g., job_seekers founder_investor)')
     parser.add_argument('--today', action='store_true', help='Filter events happening today')
     return parser.parse_args()
 
@@ -170,7 +200,9 @@ if __name__ == "__main__":
         events,
         location=args.location,
         dates=args.dates,
-        weekdays=args.weekdays
+        weekdays=args.weekdays,
+        event_types=args.event_type,
+        audiences=args.audience
     )
     
     # Convert to JSON output format with local times
@@ -194,6 +226,8 @@ if __name__ == "__main__":
             'end': convert_to_local_time(event_data.get('end_at'), timezone),
             'description': event_data.get('description'),
             'pricing': event_data.get('pricing'),
+            'event_type': event_data.get('event_type'),
+            'audience': event_data.get('audience'),
             'url': full_url
         })
     
