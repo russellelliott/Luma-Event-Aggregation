@@ -3,6 +3,7 @@ import DistanceSlider from './components/DistanceSlider';
 import ClassificationFilter from './components/ClassificationFilter';
 import MultiDayCalendar from './components/MultiDayCalendar';
 import DayPicker from './components/DayPicker';
+import EventCard from './components/EventCard';
 import './App.css';
 
 function App() {
@@ -107,6 +108,9 @@ function App() {
               selectedDates={selectedDates}
               onDatesChange={setSelectedDates}
             />
+            <div className="mt-8">
+              <EventCard events={events} />
+            </div>
           </div>
         </div>
       </div>
