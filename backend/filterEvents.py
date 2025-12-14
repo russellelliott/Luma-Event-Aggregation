@@ -149,8 +149,15 @@ def filter_by_event_type(events, event_types):
         # Handle both nested and flat event structures
         event_data = e.get('event', e) if isinstance(e, dict) else e
         event_type = event_data.get('event_type')
+        audience = event_data.get('audience')
+        
+        # Check event_type
         if event_type and event_type.lower() in event_types_set:
             filtered.append(e)
+        # Fallback: Check audience for misclassified events (e.g. social might end up in audience)
+        elif audience and audience.lower() in event_types_set:
+            filtered.append(e)
+            
     return filtered
 
 def filter_by_audience(events, audiences):
