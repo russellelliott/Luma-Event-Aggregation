@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Query
+from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 import json
 import os
@@ -7,6 +8,14 @@ from listCities import load_city_summary
 from filterEvents import load_events, apply_filters, convert_to_serializable
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
 
 # Load data at startup
 print("Loading data...")

@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { Calendar, X } from 'lucide-react';
 
-export default function MultiDayCalendar() {
+export default function MultiDayCalendar({ selectedDates, onDatesChange }) {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDates, setSelectedDates] = useState([]);
 
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
@@ -40,18 +39,18 @@ export default function MultiDayCalendar() {
     const clickedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
     
     if (isSelected(day)) {
-      setSelectedDates(selectedDates.filter(d => !isSameDay(d, clickedDate)));
+      onDatesChange(selectedDates.filter(d => !isSameDay(d, clickedDate)));
     } else {
-      setSelectedDates([...selectedDates, clickedDate]);
+      onDatesChange([...selectedDates, clickedDate]);
     }
   };
 
   const removeDate = (dateToRemove) => {
-    setSelectedDates(selectedDates.filter(d => !isSameDay(d, dateToRemove)));
+    onDatesChange(selectedDates.filter(d => !isSameDay(d, dateToRemove)));
   };
 
   const clearAll = () => {
-    setSelectedDates([]);
+    onDatesChange([]);
   };
 
   const previousMonth = () => {

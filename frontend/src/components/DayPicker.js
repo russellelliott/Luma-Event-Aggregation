@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { Calendar } from 'lucide-react';
 
-export default function DayPicker() {
-  const [selectedDays, setSelectedDays] = useState(new Set());
-
+export default function DayPicker({ selectedDays, onDaysChange }) {
   const days = [
     { id: 'mon', label: 'Mon', full: 'Monday' },
     { id: 'tue', label: 'Tue', full: 'Tuesday' },
@@ -21,15 +19,15 @@ export default function DayPicker() {
     } else {
       newSelected.add(dayId);
     }
-    setSelectedDays(newSelected);
+    onDaysChange(newSelected);
   };
 
   const selectAll = () => {
-    setSelectedDays(new Set(days.map(d => d.id)));
+    onDaysChange(new Set(days.map(d => d.id)));
   };
 
   const clearAll = () => {
-    setSelectedDays(new Set());
+    onDaysChange(new Set());
   };
 
   return (
