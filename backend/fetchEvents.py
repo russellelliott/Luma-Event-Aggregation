@@ -29,6 +29,7 @@ import asyncio
 import aiohttp
 import json
 import os
+import uuid
 from pathlib import Path
 from datetime import datetime
 from collections import Counter
@@ -729,17 +730,70 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
         def sort_key(item):
             dt = get_start_at(item)
             return dt if dt else datetime.min.replace(tzinfo=dt.tzinfo if dt else None)
-
         sorted_events = sorted(all_events, key=sort_key)
         print(f"✓ Events sorted by start time")
 
-        # Initialize classification fields
-        print("📝 Initializing classification fields...")
+        # Preserve bookmarks and IDs
+        existing_data = {}
+        if "events" in db.table_names():
+            try:
+                tbl = db.open_table("events")
+                df = tbl.to_pandas()
+                
+                # Check for existing columns
+                has_bookmarked = "bookmarked" in df.columns
+                has_id = "id" in df.columns
+                
+                # Build map of api_id -> {bookmarked, id}
+                # We use get_event_api_id logic to match what we do for new events
+                for _, row in df.iterrows():
+                    # Reconstruct a minimal event dict to use get_event_api_id
+                    # Note: row['event'] might be a dict or struct depending on how pandas loaded it
+                    # If it's a struct, we need to handle it. 
+                    # But for simplicity, let's assume we can access api_id from the row directly 
+                    # if it was stored as top-level api_id, OR we try to get it from the event struct.
+                    
+                    # In LanceDB/Pandas, struct columns become dicts or similar.
+                    event_struct = row.get('event')
+                    api_id = None
+                    if isinstance(event_struct, dict):
+                        api_id = event_struct.get('api_id')
+                    
+                    if not api_id:
+                        api_id = row.get('api_id')
+                        
+                    if api_id:
+                        existing_data[api_id] = {
+                            'bookmarked': row['bookmarked'] if has_bookmarked else False,
+                            'id': row['id'] if has_id else None
+                        }
+                        
+                print(f"✓ Preserved data for {len(existing_data)} events")
+            except Exception as e:
+                print(f"⚠️ Could not read existing data: {e}")
+
+        # Initialize classification fields and IDs
+        print("📝 Initializing classification fields and IDs...")
         for event in sorted_events:
             event['event_type'] = None
             event['audience'] = None
+            
+            # Get the unique key for this event
+            api_id = get_event_api_id(event)
+            
+            # Restore or generate data
+            saved_data = existing_data.get(api_id, {})
+            
+            event['bookmarked'] = saved_data.get('bookmarked', False)
+            
+            # Use existing ID if available, otherwise generate new UUID
+            if saved_data.get('id'):
+                event['id'] = saved_data['id']
+            else:
+                event['id'] = str(uuid.uuid4())
 
         # Save to LanceDB
+        print("💾 Saving events to LanceDB...")
         print("💾 Saving events to LanceDB...")
         try:
             if "events" in db.table_names():

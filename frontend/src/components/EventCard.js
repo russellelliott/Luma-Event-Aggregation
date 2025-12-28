@@ -1,6 +1,6 @@
 import React from 'react';
 import { format } from 'date-fns';
-import { Calendar, Clock, MapPin, Users, Ticket, Tag } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, Ticket, Tag, Bookmark } from 'lucide-react';
 
 /**
  * Helper to format the time range.
@@ -77,9 +77,10 @@ const getPriceLabel = (ticketInfo) => {
  * A React component to display a list of events using data and Lucide icons.
  * @param {object} props
  * @param {Array<object>} props.events - The array of event objects.
+ * @param {Function} props.onBookmark - Callback for bookmarking.
  * @returns {JSX.Element}
  */
-const EventCard = ({ events }) => {
+const EventCard = ({ events, onBookmark }) => {
   return (
     <div className="space-y-6">
       <h2 className="text-3xl font-bold text-gray-900 border-b pb-2">Upcoming Events</h2>
@@ -91,6 +92,7 @@ const EventCard = ({ events }) => {
           const event = item.event || item;
           const ticket_info = item.ticket_info || event.ticket_info || {};
           const guest_count = item.guest_count || event.guest_count || 0;
+          const isBookmarked = item.bookmarked || false;
 
           const startDate = new Date(event.start_at);
           const eventDate = format(startDate, 'EEEE, MMM d, yyyy');
@@ -105,9 +107,20 @@ const EventCard = ({ events }) => {
 
           return (
             <div
-              key={event.api_id || index}
-              className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-200 hover:shadow-xl transition-shadow duration-300 flex flex-col"
+              key={item.id || index}
+              className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-200 hover:shadow-xl transition-shadow duration-300 flex flex-col relative"
             >
+              <button 
+                onClick={(e) => {
+                  e.preventDefault();
+                  onBookmark(item.id, !isBookmarked);
+                }}
+                className="absolute top-2 right-2 p-2 rounded-full bg-white/80 hover:bg-white shadow-sm z-10 transition-colors"
+                title={isBookmarked ? "Remove bookmark" : "Bookmark event"}
+              >
+                <Bookmark className={`w-5 h-5 ${isBookmarked ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`} />
+              </button>
+
               <div className="p-5 flex-1 flex flex-col">
                 {/* Event Header */}
                 <h3 className="text-xl font-semibold text-gray-900 mb-2 line-clamp-2 h-14">{event.name || 'Untitled Event'}</h3>
@@ -128,9 +141,16 @@ const EventCard = ({ events }) => {
                   </div>
 
                   {/* Location */}
-                  <div className="flex items-center space-x-2">
-                    <MapPin className="w-4 h-4 text-red-500 flex-shrink-0" />
-                    <span className="truncate">{location}</span>
+                  <div className="flex items-start space-x-2">
+                    <MapPin className="w-4 h-4 text-red-500 flex-shrink-0 mt-1" />
+                    <div className="flex flex-col overflow-hidden">
+                      <span className="truncate">{location}</span>
+                      {item.distance_info && (
+                        <span className="text-xs text-gray-500">
+                          {item.distance_info.distance_text} • {item.distance_info.duration_text} drive
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Guests */}

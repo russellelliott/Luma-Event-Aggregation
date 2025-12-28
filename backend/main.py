@@ -4,8 +4,9 @@ from typing import List, Optional
 import json
 import os
 import math
+import lancedb
 from listCities import load_city_summary
-from filterEvents import load_events, apply_filters, convert_to_serializable
+from filterEvents import load_events, apply_filters, convert_to_serializable, get_city_from_event
 
 app = FastAPI()
 
@@ -73,6 +74,100 @@ def get_events(
             audiences=audience
         )
         return clean_nans(convert_to_serializable(filtered_events))
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.post("/events/{event_id}/bookmark")
+def bookmark_event(event_id: str, bookmarked: bool):
+    try:
+        # Update LanceDB
+        home_dir = os.path.expanduser("~")
+        db_path = os.path.join(home_dir, ".luma-event-aggregation", "data", "events.db")
+        db = lancedb.connect(db_path)
+        table = db.open_table("events")
+        
+        # Update the row
+        # LanceDB update syntax: table.update(where=..., values=...)
+        table.update(where=f"id = '{event_id}'", values={"bookmarked": bookmarked})
+        
+        # Update in-memory data
+        global ALL_EVENTS
+        for event in ALL_EVENTS:
+            if event.get('id') == event_id:
+                event['bookmarked'] = bookmarked
+                break
+        
+        return {"status": "success", "id": event_id, "bookmarked": bookmarked}
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/bookmarks")
+def get_bookmarks():
+    try:
+        # Filter for bookmarked events
+        bookmarked_events = [e for e in ALL_EVENTS if e.get('bookmarked', False)]
+        
+        # Sort by start_at
+        def get_start_time(e):
+            # Try to get start_at from top level or nested event
+            start_at = e.get('start_at')
+            if not start_at and isinstance(e.get('event'), dict):
+                start_at = e['event'].get('start_at')
+            return start_at or ""
+
+        bookmarked_events.sort(key=get_start_time)
+
+        # Enrich with distance info
+        city_lookup = {}
+        if CITY_SUMMARY_DF is not None:
+            for _, row in CITY_SUMMARY_DF.iterrows():
+                city_lookup[row['city']] = {
+                    'distance_miles': row.get('distance_miles'),
+                    'duration_minutes': row.get('duration_minutes'),
+                    'distance_text': row.get('distance_text'),
+                    'duration_text': row.get('duration_text')
+                }
+        
+        results = []
+        for event in bookmarked_events:
+            event_copy = event.copy()
+            
+            # Logic to extract city matching fetchEvents.py's extract_city as closely as possible
+            # to ensure we hit the cache keys in city_lookup
+            ev_data = event.get('event', {}) if isinstance(event.get('event'), dict) else event
+            geo = ev_data.get('geo_address_info', {}) if isinstance(ev_data.get('geo_address_info'), dict) else {}
+            
+            city_key = "Unknown"
+            
+            # Try city_state first (e.g. "San Francisco, California")
+            if geo.get('city_state'):
+                city_key = geo.get('city_state')
+            # Then try city (e.g. "San Francisco")
+            elif geo.get('city'):
+                city_key = geo.get('city')
+            # Then try calendar city
+            elif event.get('calendar', {}).get('geo_city'):
+                cal_city = event.get('calendar', {}).get('geo_city')
+                cal_region = event.get('calendar', {}).get('geo_region')
+                if cal_city and cal_region:
+                    city_key = f"{cal_city}, {cal_region}"
+                elif cal_city:
+                    city_key = cal_city
+            
+            # Try to find distance info
+            dist_info = city_lookup.get(city_key)
+            
+            # If not found, try simple city name if we had a state
+            if not dist_info and "," in city_key:
+                simple_city = city_key.split(",")[0].strip()
+                dist_info = city_lookup.get(simple_city)
+                
+            if dist_info:
+                event_copy['distance_info'] = dist_info
+            
+            results.append(event_copy)
+            
+        return clean_nans(convert_to_serializable(results))
     except Exception as e:
         return {"error": str(e)}
 
