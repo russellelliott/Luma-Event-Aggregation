@@ -92,8 +92,11 @@ function App() {
     }
   }, [view]);
 
-  const handleFilterChange = (newFilters) => {
-    setSelectedFilters(newFilters);
+  const handleFilterChange = (category, values) => {
+    setSelectedFilters(prev => ({
+      ...prev,
+      [category]: values
+    }));
   };
 
   const handleBookmark = (id, isBookmarked) => {
