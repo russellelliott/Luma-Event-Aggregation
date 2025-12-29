@@ -29,6 +29,7 @@ import asyncio
 import aiohttp
 import json
 import os
+import math
 import uuid
 from pathlib import Path
 from datetime import datetime
@@ -224,6 +225,28 @@ def get_event_api_id(event):
     api_id = event.get("api_id")
     if api_id:
         return api_id
+    
+    return None
+
+
+def get_event_url(event):
+    """Extract url from an event, prioritizing the nested event.url.
+    
+    Args:
+        event: Event item
+        
+    Returns:
+        The url string, or None if not found
+    """
+    # Try nested event.url first
+    url = event.get("event", {}).get("url")
+    if url:
+        return url
+    
+    # Fallback to top-level url
+    url = event.get("url")
+    if url:
+        return url
     
     return None
 
@@ -726,78 +749,82 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
         else:
             print("⚠️  Skipping event enrichment (no Google Maps API key)")
 
+        # Load existing events to preserve them and avoid duplicates
+        existing_events = []
+        existing_urls = set()
+        
+        if "events" in db.table_names():
+            try:
+                tbl = db.open_table("events")
+                # Load all existing events
+                existing_events = tbl.to_pandas().to_dict(orient='records')
+                
+                # Clean NaNs from existing events (Pandas introduces NaNs)
+                def clean_nans(obj):
+                    if isinstance(obj, float) and math.isnan(obj):
+                        return None
+                    elif isinstance(obj, dict):
+                        return {k: clean_nans(v) for k, v in obj.items()}
+                    elif isinstance(obj, list):
+                        return [clean_nans(v) for v in obj]
+                    return obj
+                
+                existing_events = [clean_nans(e) for e in existing_events]
+                
+                # Build set of existing URLs
+                for event in existing_events:
+                    url = get_event_url(event)
+                    if url:
+                        existing_urls.add(url)
+                        
+                print(f"✓ Loaded {len(existing_events)} existing events from DB")
+            except Exception as e:
+                print(f"⚠️ Could not read existing data: {e}")
+
+        # Filter fetched events to only include those not in DB
+        new_events = []
+        skipped_count = 0
+        
+        for event in all_events:
+            url = get_event_url(event)
+            if url and url in existing_urls:
+                skipped_count += 1
+                continue
+            new_events.append(event)
+            
+        print(f"✓ Found {len(new_events)} new events (skipped {skipped_count} existing)")
+
+        # Initialize fields for NEW events only
+        print("📝 Initializing fields for new events...")
+        for event in new_events:
+            # Initialize classification fields if not present
+            if 'event_type' not in event:
+                event['event_type'] = None
+            if 'audience' not in event:
+                event['audience'] = None
+            
+            # Initialize bookmark
+            event['bookmarked'] = False
+            
+            # Generate new UUID
+            event['id'] = str(uuid.uuid4())
+
+        # Combine existing and new events
+        final_events = existing_events + new_events
+        
         # Sort events by start_at
         def sort_key(item):
             dt = get_start_at(item)
             return dt if dt else datetime.min.replace(tzinfo=dt.tzinfo if dt else None)
-        sorted_events = sorted(all_events, key=sort_key)
-        print(f"✓ Events sorted by start time")
-
-        # Preserve bookmarks and IDs
-        existing_data = {}
-        if "events" in db.table_names():
-            try:
-                tbl = db.open_table("events")
-                df = tbl.to_pandas()
-                
-                # Check for existing columns
-                has_bookmarked = "bookmarked" in df.columns
-                has_id = "id" in df.columns
-                
-                # Build map of api_id -> {bookmarked, id}
-                # We use get_event_api_id logic to match what we do for new events
-                for _, row in df.iterrows():
-                    # Reconstruct a minimal event dict to use get_event_api_id
-                    # Note: row['event'] might be a dict or struct depending on how pandas loaded it
-                    # If it's a struct, we need to handle it. 
-                    # But for simplicity, let's assume we can access api_id from the row directly 
-                    # if it was stored as top-level api_id, OR we try to get it from the event struct.
-                    
-                    # In LanceDB/Pandas, struct columns become dicts or similar.
-                    event_struct = row.get('event')
-                    api_id = None
-                    if isinstance(event_struct, dict):
-                        api_id = event_struct.get('api_id')
-                    
-                    if not api_id:
-                        api_id = row.get('api_id')
-                        
-                    if api_id:
-                        existing_data[api_id] = {
-                            'bookmarked': row['bookmarked'] if has_bookmarked else False,
-                            'id': row['id'] if has_id else None
-                        }
-                        
-                print(f"✓ Preserved data for {len(existing_data)} events")
-            except Exception as e:
-                print(f"⚠️ Could not read existing data: {e}")
-
-        # Initialize classification fields and IDs
-        print("📝 Initializing classification fields and IDs...")
-        for event in sorted_events:
-            event['event_type'] = None
-            event['audience'] = None
             
-            # Get the unique key for this event
-            api_id = get_event_api_id(event)
-            
-            # Restore or generate data
-            saved_data = existing_data.get(api_id, {})
-            
-            event['bookmarked'] = saved_data.get('bookmarked', False)
-            
-            # Use existing ID if available, otherwise generate new UUID
-            if saved_data.get('id'):
-                event['id'] = saved_data['id']
-            else:
-                event['id'] = str(uuid.uuid4())
+        sorted_events = sorted(final_events, key=sort_key)
+        print(f"✓ Total events to save: {len(sorted_events)} (sorted by start time)")
 
         # Save to LanceDB
         print("💾 Saving events to LanceDB...")
-        print("💾 Saving events to LanceDB...")
         try:
             if "events" in db.table_names():
-                print("  Overwriting existing 'events' table...")
+                print("  Overwriting existing 'events' table with updated list...")
                 db.drop_table("events")
             
             db.create_table("events", data=sorted_events)

@@ -52,6 +52,12 @@ def generate_descriptions_for_all_events(events, delay=1.0):
         event_name = event_data.get('name', 'Unknown Event')
         
         if event_url:
+            # Check if we already have the description
+            if event_data.get('description'):
+                print(f"[{i+1}/{len(events)}] Skipping: {event_name} (already has description)")
+                events_with_descriptions.append(event_entry)
+                continue
+
             print(f"[{i+1}/{len(events)}] Processing: {event_name}")
             print(f"  URL: {event_url}")
             
