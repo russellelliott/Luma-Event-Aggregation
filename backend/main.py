@@ -73,7 +73,32 @@ def get_events(
             event_types=event_type, 
             audiences=audience
         )
-        return clean_nans(convert_to_serializable(filtered_events))
+        
+        # Normalize URLs in the response
+        response_events = []
+        for e in filtered_events:
+            # Create a copy to avoid modifying the in-memory cache if we want to keep it raw
+            # But actually, modifying it is fine or we can just return a modified dict
+            event_copy = e.copy()
+            
+            # Handle nested event structure
+            event_data = event_copy.get('event', event_copy) if isinstance(event_copy, dict) else event_copy
+            
+            # Normalize URL
+            url = event_data.get('url')
+            if url and not url.startswith('http'):
+                # It's a slug, make it a full Luma URL
+                full_url = f"https://lu.ma/{url}"
+                
+                # Update the URL in the appropriate place
+                if isinstance(event_copy.get('event'), dict):
+                    event_copy['event']['url'] = full_url
+                else:
+                    event_copy['url'] = full_url
+            
+            response_events.append(event_copy)
+            
+        return clean_nans(convert_to_serializable(response_events))
     except Exception as e:
         return {"error": str(e)}
 

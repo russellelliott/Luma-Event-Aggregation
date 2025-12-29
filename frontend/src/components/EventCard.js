@@ -105,6 +105,11 @@ const EventCard = ({ events, onBookmark }) => {
           const eventType = event.event_type ? event.event_type.replace(/_/g, ' ') : 'General Event';
           const audience = event.audience ? event.audience.replace(/_/g, ' ') : 'General Audience';
 
+          // Handle URL: if it doesn't start with http, assume it's a Luma slug
+          const rawUrl = event.url || '';
+          const eventUrl = rawUrl.startsWith('http') ? rawUrl : `https://lu.ma/${rawUrl}`;
+          const isLumaEvent = eventUrl.includes('lu.ma') || eventUrl.includes('luma.com');
+
           return (
             <div
               key={item.id || index}
@@ -190,12 +195,16 @@ const EventCard = ({ events, onBookmark }) => {
 
                 {/* Action Button */}
                 <a 
-                  href={`https://luma.com/${event.url}`} 
+                  href={eventUrl} 
                   target="_blank" 
                   rel="noopener noreferrer" 
-                  className="mt-auto inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 w-full"
+                  className={`mt-auto inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white focus:outline-none focus:ring-2 focus:ring-offset-2 transition duration-150 w-full ${
+                    isLumaEvent
+                      ? 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500'
+                      : 'bg-orange-600 hover:bg-orange-700 focus:ring-orange-500'
+                  }`}
                 >
-                  View Details
+                  {isLumaEvent ? 'View on Luma' : 'View External Event'}
                 </a>
               </div>
             </div>
