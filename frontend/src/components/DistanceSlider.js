@@ -2,7 +2,9 @@ import React from 'react';
 import { Clock } from 'lucide-react';
 
 export default function DistanceSlider({ cities, selectedCityIndex, onCityChange }) {
+
   if (!cities || cities.length === 0) {
+    // Show a default city with distance 0 if nothing is loaded
     return (
       <div className="w-full p-6 bg-white rounded-xl shadow-sm border border-gray-100 flex justify-center items-center">
         <div className="text-gray-500">Loading cities...</div>
@@ -10,7 +12,8 @@ export default function DistanceSlider({ cities, selectedCityIndex, onCityChange
     );
   }
 
-  const selectedCity = cities[selectedCityIndex] || cities[0];
+  // Defensive: fallback to first city, or a default object if cities is empty
+  const selectedCity = cities[selectedCityIndex] || cities[0] || { city: 'Current Location', distance_miles: 0 };
 
   return (
     <div className="w-full p-6 bg-white rounded-xl shadow-sm border border-gray-100">
@@ -18,7 +21,9 @@ export default function DistanceSlider({ cities, selectedCityIndex, onCityChange
         <h3 className="text-lg font-semibold text-gray-800">Distance</h3>
         <div className="text-right">
           <span className="text-2xl font-bold text-blue-600">
-            {selectedCity.distance_miles.toFixed(1)}
+            {typeof selectedCity.distance_miles === 'number' && !isNaN(selectedCity.distance_miles)
+              ? selectedCity.distance_miles.toFixed(1)
+              : '0.0'}
           </span>
           <span className="text-gray-500 ml-1">miles</span>
         </div>
