@@ -120,6 +120,29 @@ def add_event(event_url: EventUrl):
         info = get_luma_event_info(event_url.url)
         if 'error' in info:
             return {"error": info['error']}
+            
+        # Check for duplicates by normalized event URL (not api_id)
+        def normalize_url(url):
+            if not url:
+                return None
+            url = url.strip()
+            if url.startswith("http://"):
+                url = "https://" + url[len("http://"):]
+            # Remove trailing slashes
+            url = url.rstrip("/")
+            # Normalize lu.ma and luma.com
+            if url.startswith("https://luma.com/"):
+                url = url.replace("https://luma.com/", "https://lu.ma/")
+            return url
+
+        new_url = normalize_url(info.get('url'))
+        for existing_event in ALL_EVENTS:
+            # Try nested event.url first
+            event_data = existing_event.get('event', existing_event) if isinstance(existing_event, dict) else existing_event
+            existing_url = normalize_url(event_data.get('url'))
+            if existing_url and new_url and existing_url == new_url:
+                print(f"Event with URL {new_url} already exists.")
+                return {"error": "Event already exists in database"}
         
         # 2. Classify
         classification = classify_event(info)
