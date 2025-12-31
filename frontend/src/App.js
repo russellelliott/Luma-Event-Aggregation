@@ -4,6 +4,7 @@ import ClassificationFilter from './components/ClassificationFilter';
 import MultiDayCalendar from './components/MultiDayCalendar';
 import DayPicker from './components/DayPicker';
 import EventCard from './components/EventCard';
+import AddEvent from './components/AddEvent';
 import './App.css';
 
 function App() {
@@ -170,6 +171,16 @@ function App() {
             >
               Bookmarks
             </button>
+            <button 
+              onClick={() => setView('add-event')}
+              className={`px-6 py-2 rounded-full font-medium transition-colors ${
+                view === 'add-event' 
+                  ? 'bg-blue-600 text-white shadow-md' 
+                  : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
+              }`}
+            >
+              Add Event
+            </button>
           </div>
 
           {view === 'home' && (
@@ -180,7 +191,7 @@ function App() {
           )}
         </header>
 
-        {view === 'home' ? (
+        {view === 'home' && (
           <>
             <DistanceSlider 
               cities={cities}
@@ -214,7 +225,9 @@ function App() {
               <EventCard events={events} onBookmark={handleBookmark} />
             </div>
           </>
-        ) : (
+        )}
+
+        {view === 'bookmarks' && (
           <div className="max-w-7xl mx-auto">
             <h2 className="text-2xl font-bold mb-6 text-gray-900">Your Bookmarked Events</h2>
             {bookmarkedEvents.length === 0 ? (
@@ -231,6 +244,16 @@ function App() {
               <EventCard events={bookmarkedEvents} onBookmark={handleBookmark} />
             )}
           </div>
+        )}
+
+        {view === 'add-event' && (
+          <AddEvent 
+            onEventAdded={(newEvent) => {
+              setEvents(prev => [...prev, newEvent]);
+              setView('home');
+            }}
+            onCancel={() => setView('home')}
+          />
         )}
       </div>
     </div>

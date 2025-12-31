@@ -7,6 +7,12 @@ import math
 import lancedb
 from listCities import load_city_summary
 from filterEvents import load_events, apply_filters, convert_to_serializable, get_city_from_event
+from pydantic import BaseModel
+from eventDescription import get_luma_event_info
+from classifyEvents import classify_event
+from datetime import datetime
+import uuid
+import pandas as pd
 
 app = FastAPI()
 
@@ -100,6 +106,121 @@ def get_events(
             
         return clean_nans(convert_to_serializable(response_events))
     except Exception as e:
+        return {"error": str(e)}
+
+class EventUrl(BaseModel):
+    url: str
+
+@app.post("/add-event")
+def add_event(event_url: EventUrl):
+    global ALL_EVENTS
+    try:
+        print(f"Adding event from URL: {event_url.url}")
+        # 1. Fetch info
+        info = get_luma_event_info(event_url.url)
+        if 'error' in info:
+            return {"error": info['error']}
+        
+        # 2. Classify
+        classification = classify_event(info)
+        event_type = 'networking'
+        audience = 'general'
+        if classification:
+            event_type = classification.get('event_type', 'networking')
+            audience = classification.get('audience', 'general')
+            
+        # 3. Prepare data structure matching schema
+        api_id = info.get('url', '').split('/')[-1]
+        record_id = str(uuid.uuid4())
+        start_at = info.get('start_date')
+        
+        # Construct 'event' struct
+        event_struct = {
+            'api_id': api_id,
+            'name': info.get('name'),
+            'description': info.get('description'),
+            'start_at': start_at,
+            'url': info.get('url'),
+            'event_type': event_type,
+            'audience': audience
+        }
+
+        # Handle coordinates
+        lat = info.get('latitude')
+        lng = info.get('longitude')
+        if lat is not None and lng is not None:
+            try:
+                event_struct['coordinate'] = {
+                    'latitude': float(lat),
+                    'longitude': float(lng)
+                }
+            except (ValueError, TypeError):
+                pass
+            
+        # Handle address/location
+        geo_address_info = {}
+        address_data = info.get('address')
+        if isinstance(address_data, dict):
+            geo_address_info['city'] = address_data.get('addressLocality')
+            geo_address_info['region'] = address_data.get('addressRegion')
+            geo_address_info['country'] = address_data.get('addressCountry')
+            geo_address_info['address'] = address_data.get('streetAddress')
+            
+            # Construct city_state
+            city = geo_address_info.get('city')
+            region = geo_address_info.get('region')
+            if city and region:
+                geo_address_info['city_state'] = f"{city}, {region}"
+            elif city:
+                geo_address_info['city_state'] = city
+        
+        if geo_address_info:
+            event_struct['geo_address_info'] = geo_address_info
+
+        # Construct top-level record
+        new_record = {
+            'api_id': api_id,
+            'event': event_struct,
+            'start_at': start_at,
+            'event_type': event_type,
+            'audience': audience,
+            'bookmarked': False,
+            'id': record_id
+        }
+
+        # 5. Save to DB
+        home_dir = os.path.expanduser("~")
+        db_path = os.path.join(home_dir, ".luma-event-aggregation", "data", "events.db")
+        db = lancedb.connect(db_path)
+        
+        try:
+            table = db.open_table("events")
+            table.add([new_record])
+        except Exception as e:
+            print(f"⚠️ Add failed: {e}")
+            print("🔄 Attempting to update schema via overwrite...")
+            try:
+                # Read existing data
+                table = db.open_table("events")
+                existing_data = table.to_pandas().to_dict('records')
+                
+                # Append new record
+                existing_data.append(new_record)
+                
+                # Overwrite table
+                db.create_table("events", data=existing_data, mode="overwrite")
+                print("✅ Schema updated and event added.")
+            except Exception as e2:
+                print(f"❌ Overwrite failed: {e2}")
+                return {"error": f"Failed to add event: {str(e)} -> {str(e2)}"}
+        
+        # Reload ALL_EVENTS
+        ALL_EVENTS = load_events()
+        
+        return {"message": "Event added successfully", "event": new_record}
+        
+    except Exception as e:
+        print(f"Error adding event: {e}")
         return {"error": str(e)}
 
 @app.post("/events/{event_id}/bookmark")

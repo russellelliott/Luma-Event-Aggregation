@@ -30,6 +30,9 @@ if os.path.exists(db_path):
         else:
             print("bookmarked column does not exist")
             
+        print("\nSchema:")
+        print(table.schema)
+            
     else:
         print("Table 'events' not found.")
 else:
