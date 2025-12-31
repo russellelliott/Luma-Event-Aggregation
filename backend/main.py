@@ -207,7 +207,7 @@ def add_event(event_url: EventUrl):
             'start_at': start_at,
             'event_type': event_type,
             'audience': audience,
-            'bookmarked': False,
+            'bookmarked': True, # Save to bookmarks
             'id': record_id
         }
 
