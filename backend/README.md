@@ -3,10 +3,24 @@ Fetches events from several Luma calendars and enables filtering by location, da
 
 Start and End times (start_at, end_at) appear to be in standard UTC timestamp. For filtering by dates and times, go by the user's time zone.
 
+## IMPORTANT: How to Run the Backend
+
+**The intended way to run the backend is via the automated pipeline script:**
+
+```bash
+./run_pipeline.sh
+```
+
+This script will:
+- Fetch and aggregate events (`fetchEvents.py`)
+- Generate event descriptions (`generateEventDescriptions.py`)
+- Classify events (`classifyEvents.py`)
+
+**Do NOT run `fetchEvents.py` by itself unless you know what you are doing!**
+> ⚠️ Running `fetchEvents.py` directly will overwrite the `events` table in LanceDB and will erase all bookmark information and any manual changes. Always use `run_pipeline.sh` to preserve the intended workflow and data integrity.
+
 ## Requirements
 
-- **Google Maps API Key**: Required for generating city summaries with distance/time data
-- **Internet Connection**: For automatic IP-based location detection
 
 ## Quick Start
 
@@ -15,11 +29,14 @@ Start and End times (start_at, end_at) appear to be in standard UTC timestamp. F
    export GOOGLE_MAPS_API_KEY="your_api_key_here"
    ```
 
+
 2. **Fetch and aggregate events** (location will be detected automatically):
    ```bash
    cd backend
    python3 -m pip install -r requirements.txt
-   python3 fetchEvents.py
+   # Recommended: use the pipeline script below!
+   ./run_pipeline.sh
+   # If you run python3 fetchEvents.py directly, see warning above.
    ```
 
 3. **Generate event descriptions** (scrapes detailed info):
@@ -77,6 +94,9 @@ Start and End times (start_at, end_at) appear to be in standard UTC timestamp. F
    - **Filter Events**: `GET /events` (supports query params: `location`, `dates`, `weekdays`, `event-type`, `audience`)
 
 ## Automated Pipeline
+
+
+## Automated Pipeline (Recommended)
 
 To run the entire data collection and processing pipeline (fetch, generate descriptions, and classify) in one go:
 
