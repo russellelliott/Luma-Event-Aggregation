@@ -1,6 +1,40 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { Calendar, Clock, MapPin, Users, Ticket, Tag, Bookmark } from 'lucide-react';
+
+/**
+ * Component to handle description truncation and expansion
+ */
+const Description = ({ text }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  if (!text) return <p className="text-gray-700 mb-4 flex-1">No description provided.</p>;
+
+  // Heuristic: only show toggle if text is reasonably long
+  const shouldTruncate = text.length > 150;
+
+  if (!shouldTruncate) {
+      return <p className="text-gray-700 mb-4 flex-1">{text}</p>;
+  }
+
+  return (
+    <div className="mb-4 flex-1">
+      <p className={`text-gray-700 ${isExpanded ? '' : 'line-clamp-3'}`}>
+        {text}
+      </p>
+      <button 
+        onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsExpanded(!isExpanded);
+        }}
+        className="text-indigo-600 hover:text-indigo-800 text-sm font-medium mt-1 focus:outline-none"
+      >
+        {isExpanded ? 'Show less' : 'Read more'}
+      </button>
+    </div>
+  );
+};
 
 /**
  * Helper to format the time range.
@@ -189,9 +223,7 @@ const EventCard = ({ events, onBookmark }) => {
                 </div>
                 
                 {/* Event Description (Truncated) */}
-                <p className="text-gray-700 line-clamp-3 mb-4 flex-1">
-                  {event.description || 'No description provided.'}
-                </p>
+                <Description text={event.description} />
 
                 {/* Action Button */}
                 <a 
