@@ -170,6 +170,16 @@ def get_events(
             
         # Enrich with distance info
         response_events = enrich_events_with_distance(response_events)
+
+        # Sort by start_at
+        def get_start_time(e):
+            # Try to get start_at from top level or nested event
+            start_at = e.get('start_at')
+            if not start_at and isinstance(e.get('event'), dict):
+                start_at = e['event'].get('start_at')
+            return start_at or ""
+        
+        response_events.sort(key=get_start_time)
             
         return clean_nans(convert_to_serializable(response_events))
     except Exception as e:
