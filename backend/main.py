@@ -5,6 +5,8 @@ import json
 import os
 import math
 import lancedb
+import googlemaps
+from dotenv import load_dotenv
 from listCities import load_city_summary
 from filterEvents import load_events, apply_filters, convert_to_serializable, get_city_from_event
 from pydantic import BaseModel
@@ -13,6 +15,8 @@ from classifyEvents import classify_event
 from datetime import datetime
 import uuid
 import pandas as pd
+
+load_dotenv()
 
 app = FastAPI()
 
@@ -49,6 +53,66 @@ def clean_nans(data):
     elif isinstance(data, float) and math.isnan(data):
         return None  # Convert NaN to JSON-compliant null
     return data
+
+def enrich_events_with_distance(events):
+    """Enrich a list of events with distance info from CITY_SUMMARY_DF."""
+    if CITY_SUMMARY_DF is None:
+        return events
+        
+    city_lookup = {}
+    for _, row in CITY_SUMMARY_DF.iterrows():
+        city_lookup[row['city']] = {
+            'distance_miles': row.get('distance_miles'),
+            'duration_minutes': row.get('duration_minutes'),
+            'distance_text': row.get('distance_text'),
+            'duration_text': row.get('duration_text')
+        }
+    
+    enriched_events = []
+    for event in events:
+        event_copy = event.copy()
+        
+        # Logic to extract city matching fetchEvents.py's extract_city as closely as possible
+        # to ensure we hit the cache keys in city_lookup
+        ev_data = event.get('event', {}) if isinstance(event.get('event'), dict) else event
+        geo = ev_data.get('geo_address_info', {}) if isinstance(ev_data.get('geo_address_info'), dict) else {}
+        
+        city_key = "Unknown"
+        
+        # Try city_state first (e.g. "San Francisco, California")
+        if geo.get('city_state'):
+            city_key = geo.get('city_state')
+        # Then try city (e.g. "San Francisco")
+        elif geo.get('city'):
+            city_key = geo.get('city')
+        # Then try calendar city
+        elif event.get('calendar', {}).get('geo_city'):
+            cal_city = event.get('calendar', {}).get('geo_city')
+            cal_region = event.get('calendar', {}).get('geo_region')
+            if cal_city and cal_region:
+                city_key = f"{cal_city}, {cal_region}"
+            elif cal_city:
+                city_key = cal_city
+        
+        # Try to find distance info
+        dist_info = city_lookup.get(city_key)
+        
+        # If not found, try simple city name if we had a state
+        if not dist_info and "," in city_key:
+            simple_city = city_key.split(",")[0].strip()
+            dist_info = city_lookup.get(simple_city)
+        
+        # If still not found, try appending ", California" if it's missing
+        if not dist_info and "," not in city_key:
+            california_key = f"{city_key}, California"
+            dist_info = city_lookup.get(california_key)
+            
+        if dist_info:
+            event_copy['distance_info'] = dist_info
+        
+        enriched_events.append(event_copy)
+        
+    return enriched_events
 
 @app.get("/cities")
 def get_cities():
@@ -103,6 +167,9 @@ def get_events(
                     event_copy['url'] = full_url
             
             response_events.append(event_copy)
+            
+        # Enrich with distance info
+        response_events = enrich_events_with_distance(response_events)
             
         return clean_nans(convert_to_serializable(response_events))
     except Exception as e:
@@ -213,6 +280,44 @@ def add_event(event_url: EventUrl):
                 geo_address_info['city'] = possible_city
                 geo_address_info['city_state'] = possible_city
         
+        # Enrich with Google Maps if city is missing or vague
+        current_city = geo_address_info.get('city')
+        vague_cities = ["California", "United States", "USA", "Register to See Address"]
+        
+        has_valid_city = current_city and current_city not in vague_cities
+        
+        if not has_valid_city:
+            google_maps_api_key = os.getenv("GOOGLE_MAPS_API_KEY")
+            if google_maps_api_key and lat is not None and lng is not None:
+                try:
+                    print("Attempting reverse geocoding...")
+                    gmaps = googlemaps.Client(key=google_maps_api_key)
+                    result = gmaps.reverse_geocode((lat, lng))
+                    if result:
+                        city_name = None
+                        state_name = None
+                        country_name = None
+                        
+                        for component in result[0].get("address_components", []):
+                            types = component.get("types", [])
+                            if "locality" in types:
+                                city_name = component.get("long_name")
+                            elif "administrative_area_level_1" in types:
+                                state_name = component.get("long_name")
+                            elif "country" in types:
+                                country_name = component.get("long_name")
+                        
+                        if city_name:
+                            geo_address_info["city"] = city_name
+                            if state_name:
+                                geo_address_info["region"] = state_name
+                                geo_address_info["city_state"] = f"{city_name}, {state_name}"
+                            if country_name:
+                                geo_address_info["country"] = country_name
+                            print(f"✅ Enriched location: {geo_address_info.get('city_state')}")
+                except Exception as e:
+                    print(f"⚠️ Reverse geocoding failed: {e}")
+
         if geo_address_info:
             event_struct['geo_address_info'] = geo_address_info
 
@@ -311,54 +416,7 @@ def get_bookmarks():
         bookmarked_events.sort(key=get_start_time)
 
         # Enrich with distance info
-        city_lookup = {}
-        if CITY_SUMMARY_DF is not None:
-            for _, row in CITY_SUMMARY_DF.iterrows():
-                city_lookup[row['city']] = {
-                    'distance_miles': row.get('distance_miles'),
-                    'duration_minutes': row.get('duration_minutes'),
-                    'distance_text': row.get('distance_text'),
-                    'duration_text': row.get('duration_text')
-                }
-        
-        results = []
-        for event in bookmarked_events:
-            event_copy = event.copy()
-            
-            # Logic to extract city matching fetchEvents.py's extract_city as closely as possible
-            # to ensure we hit the cache keys in city_lookup
-            ev_data = event.get('event', {}) if isinstance(event.get('event'), dict) else event
-            geo = ev_data.get('geo_address_info', {}) if isinstance(ev_data.get('geo_address_info'), dict) else {}
-            
-            city_key = "Unknown"
-            
-            # Try city_state first (e.g. "San Francisco, California")
-            if geo.get('city_state'):
-                city_key = geo.get('city_state')
-            # Then try city (e.g. "San Francisco")
-            elif geo.get('city'):
-                city_key = geo.get('city')
-            # Then try calendar city
-            elif event.get('calendar', {}).get('geo_city'):
-                cal_city = event.get('calendar', {}).get('geo_city')
-                cal_region = event.get('calendar', {}).get('geo_region')
-                if cal_city and cal_region:
-                    city_key = f"{cal_city}, {cal_region}"
-                elif cal_city:
-                    city_key = cal_city
-            
-            # Try to find distance info
-            dist_info = city_lookup.get(city_key)
-            
-            # If not found, try simple city name if we had a state
-            if not dist_info and "," in city_key:
-                simple_city = city_key.split(",")[0].strip()
-                dist_info = city_lookup.get(simple_city)
-                
-            if dist_info:
-                event_copy['distance_info'] = dist_info
-            
-            results.append(event_copy)
+        results = enrich_events_with_distance(bookmarked_events)
             
         return clean_nans(convert_to_serializable(results))
     except Exception as e:
