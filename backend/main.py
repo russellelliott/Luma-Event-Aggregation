@@ -136,13 +136,16 @@ def add_event(event_url: EventUrl):
             return url
 
         new_url = normalize_url(info.get('url'))
+        existing_record_id = None
+        
         for existing_event in ALL_EVENTS:
             # Try nested event.url first
             event_data = existing_event.get('event', existing_event) if isinstance(existing_event, dict) else existing_event
             existing_url = normalize_url(event_data.get('url'))
             if existing_url and new_url and existing_url == new_url:
-                print(f"Event with URL {new_url} already exists.")
-                return {"error": "Event already exists in database"}
+                print(f"Event with URL {new_url} already exists. Updating...")
+                existing_record_id = existing_event.get('id')
+                break
         
         # 2. Classify
         classification = classify_event(info)
@@ -154,8 +157,9 @@ def add_event(event_url: EventUrl):
             
         # 3. Prepare data structure matching schema
         api_id = info.get('url', '').split('/')[-1]
-        record_id = str(uuid.uuid4())
+        record_id = existing_record_id if existing_record_id else str(uuid.uuid4())
         start_at = info.get('start_date')
+        end_at = info.get('end_date')
         
         # Construct 'event' struct
         event_struct = {
@@ -163,6 +167,7 @@ def add_event(event_url: EventUrl):
             'name': info.get('name'),
             'description': info.get('description'),
             'start_at': start_at,
+            'end_at': end_at,
             'url': info.get('url'),
             'event_type': event_type,
             'audience': audience
@@ -196,6 +201,17 @@ def add_event(event_url: EventUrl):
                 geo_address_info['city_state'] = f"{city}, {region}"
             elif city:
                 geo_address_info['city_state'] = city
+        elif isinstance(address_data, str):
+            # Handle string address
+            geo_address_info['address'] = address_data
+            # Try to extract city from the end if it looks like "Address, City"
+            parts = address_data.split(',')
+            if len(parts) > 1:
+                # Heuristic: Last part might be city or state
+                # For "995 Market Street, San Francisco", last part is " San Francisco"
+                possible_city = parts[-1].strip()
+                geo_address_info['city'] = possible_city
+                geo_address_info['city_state'] = possible_city
         
         if geo_address_info:
             event_struct['geo_address_info'] = geo_address_info
@@ -205,6 +221,7 @@ def add_event(event_url: EventUrl):
             'api_id': api_id,
             'event': event_struct,
             'start_at': start_at,
+            'end_at': end_at,
             'event_type': event_type,
             'audience': audience,
             'bookmarked': True, # Save to bookmarks
@@ -218,6 +235,9 @@ def add_event(event_url: EventUrl):
         
         try:
             table = db.open_table("events")
+            if existing_record_id:
+                # Delete existing record before adding updated one
+                table.delete(f"id = '{existing_record_id}'")
             table.add([new_record])
         except Exception as e:
             print(f"⚠️ Add failed: {e}")
@@ -226,6 +246,10 @@ def add_event(event_url: EventUrl):
                 # Read existing data
                 table = db.open_table("events")
                 existing_data = table.to_pandas().to_dict('records')
+                
+                # If updating, remove the old record from existing_data
+                if existing_record_id:
+                    existing_data = [d for d in existing_data if d.get('id') != existing_record_id]
                 
                 # Append new record
                 existing_data.append(new_record)
