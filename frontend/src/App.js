@@ -35,8 +35,12 @@ function App() {
     const params = new URLSearchParams();
     
     // Add locations
-    const includedCities = cities.slice(0, selectedCityIndex + 1).map(c => c.city.split(',')[0]);
-    includedCities.forEach(city => params.append('location', city));
+    // If selectedCityIndex is equal to cities.length, it means "All Events" is selected
+    // In that case, we don't send any location filter to get everything
+    if (selectedCityIndex < cities.length) {
+      const includedCities = cities.slice(0, selectedCityIndex + 1).map(c => c.city.split(',')[0]);
+      includedCities.forEach(city => params.append('location', city));
+    }
 
     // Add event types
     selectedFilters.eventTypes.forEach(type => params.append('event-type', type));
