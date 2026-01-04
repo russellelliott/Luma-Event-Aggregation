@@ -33,6 +33,23 @@ print("Loading data...")
 try:
     CITY_SUMMARY_DF = load_city_summary()
     print(f"📊 Loaded {len(CITY_SUMMARY_DF)} cities from LanceDB")
+    
+    # Filter out invalid cities and non-California cities
+    if CITY_SUMMARY_DF is not None and not CITY_SUMMARY_DF.empty:
+        # Filter for status="OK"
+        if 'status' in CITY_SUMMARY_DF.columns:
+            CITY_SUMMARY_DF = CITY_SUMMARY_DF[CITY_SUMMARY_DF['status'] == 'OK']
+            
+        # Filter for California cities
+        if 'city' in CITY_SUMMARY_DF.columns:
+            # Check for "California" or ", CA"
+            CITY_SUMMARY_DF = CITY_SUMMARY_DF[
+                CITY_SUMMARY_DF['city'].str.contains('California', case=False, na=False) | 
+                CITY_SUMMARY_DF['city'].str.contains(', CA', case=False, na=False)
+            ]
+            
+    print(f"📊 Filtered to {len(CITY_SUMMARY_DF)} valid California cities")
+
     # Sort by duration_seconds (ascending)
     if 'duration_seconds' in CITY_SUMMARY_DF.columns:
         CITY_SUMMARY_DF = CITY_SUMMARY_DF.sort_values(by='duration_seconds', ascending=True)

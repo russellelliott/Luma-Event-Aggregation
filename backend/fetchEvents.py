@@ -620,44 +620,37 @@ def generate_city_summary(events, user_location):
         
         print(f"  [{i}/{len(cities)}] Querying: {city}", end="")
         
-        # Always add distance/time info for valid cities
-        if city != "Unknown":
-            distance_data = get_distance_and_time_from_user_location(
-                user_location, city, gmaps_client
-            )
-            
-            if distance_data and distance_data.get("status") == "OK":
-                city_info.update(distance_data)
-                miles = distance_data.get("distance_miles", "N/A")
-                minutes = distance_data.get("duration_minutes", "N/A")
-                print(f" ✓ {miles} mi, {minutes} min")
-            else:
-                city_info.update({
-                    "status": distance_data.get("status", "ERROR") if distance_data else "ERROR",
-                    "distance_text": "Unable to calculate",
-                    "distance_meters": None,
-                    "distance_miles": None,
-                    "duration_text": "Unable to calculate", 
-                    "duration_seconds": None,
-                    "duration_minutes": None,
-                })
-                if distance_data and distance_data.get("error"):
-                    city_info["error"] = distance_data["error"]
-                    print(f" ✗ Error: {distance_data['error']}")
-                else:
-                    status = distance_data.get("status", "UNKNOWN") if distance_data else "UNKNOWN"
-                    print(f" ✗ Status: {status}")
-        else:
-            city_info.update({
-                "status": "INVALID_LOCATION",
-                "distance_text": "N/A - Unknown location",
-                "distance_meters": None,
-                "distance_miles": None,
-                "duration_text": "N/A - Unknown location",
-                "duration_seconds": None,
-                "duration_minutes": None,
-            })
+        # Skip unknown locations immediately
+        if city == "Unknown":
             print(" ⚠️  Unknown location - skipping")
+            continue
+
+        distance_data = get_distance_and_time_from_user_location(
+            user_location, city, gmaps_client
+        )
+        
+        # Filter 1: Must have valid distance data (Status OK)
+        if not distance_data or distance_data.get("status") != "OK":
+            status = distance_data.get("status", "UNKNOWN") if distance_data else "UNKNOWN"
+            error = distance_data.get("error") if distance_data else None
+            if error:
+                print(f" ✗ Skipping (Error: {error})")
+            else:
+                print(f" ✗ Skipping (Status: {status})")
+            continue
+
+        # Filter 2: Must be in California
+        # We check for "California" or ", CA" in the city string
+        # This filters out cities like "Austin, Texas", "Lehi, Utah", "London, England"
+        if "California" not in city and ", CA" not in city:
+            print(f" ✗ Skipping (Not in California)")
+            continue
+
+        # If we get here, it's a valid California city
+        city_info.update(distance_data)
+        miles = distance_data.get("distance_miles", "N/A")
+        minutes = distance_data.get("duration_minutes", "N/A")
+        print(f" ✓ {miles} mi, {minutes} min")
         
         summary[city] = city_info
     
@@ -729,6 +722,7 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
         # Enrich events with city data using reverse geocoding where needed
         print("🔍 Enriching events with city data via reverse geocoding...")
         google_maps_api_key = os.getenv("GOOGLE_MAPS_API_KEY")
+        gmaps_client = None
         if google_maps_api_key:
             try:
                 gmaps_client = googlemaps.Client(key=google_maps_api_key)
@@ -748,6 +742,58 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
                 print(f"⚠️  Could not enrich events: {e}")
         else:
             print("⚠️  Skipping event enrichment (no Google Maps API key)")
+
+        # Filter out non-California events
+        print("🔍 Filtering out non-California events...")
+        
+        # Whitelist of Bay Area cities that might appear without state
+        whitelist = [
+            "San Francisco", "Palo Alto", "Mountain View", "Sunnyvale", "San Jose", 
+            "Santa Clara", "Cupertino", "Menlo Park", "Redwood City", "San Mateo", 
+            "Berkeley", "Oakland", "Fremont", "Hayward", "San Ramon", "Pleasanton", 
+            "Livermore", "Walnut Creek", "Los Gatos", "Saratoga", "Campbell", "Milpitas", 
+            "Union City", "Newark", "Daly City", "South San Francisco", "Burlingame", 
+            "Millbrae", "San Bruno", "Foster City", "Belmont", "San Carlos", "Atherton", 
+            "Woodside", "Portola Valley", "Los Altos", "Los Altos Hills", "Stanford", 
+            "East Palo Alto", "Emeryville", "Alameda", "Albany", "El Cerrito", "Richmond", 
+            "San Leandro", "Castro Valley", "Dublin", "Pleasant Hill", "Concord", 
+            "Lafayette", "Orinda", "Moraga", "Danville", "Alamo", "San Rafael", 
+            "Sausalito", "Tiburon", "Mill Valley", "Corte Madera", "Larkspur", 
+            "San Anselmo", "Fairfax", "Novato", "Half Moon Bay", "Pacifica", "Brisbane", 
+            "Hillsborough", "Sunol"
+        ]
+        whitelist_lower = [c.lower() for c in whitelist]
+
+        def is_california_event(event):
+            # Use extract_city to get the best city string
+            city_str = extract_city(event, gmaps_client)
+            if not city_str:
+                return False # Skip if no city found
+            
+            if "California" in city_str or ", CA" in city_str:
+                return True
+            
+            # Check whitelist
+            # Extract just the city part if it has a comma (though extract_city tries to give "City, State")
+            city_part = city_str.split(',')[0].strip()
+            if city_part.lower() in whitelist_lower:
+                return True
+                
+            return False
+
+        filtered_events = []
+        non_cal_count = 0
+        for event in all_events:
+            if is_california_event(event):
+                filtered_events.append(event)
+            else:
+                non_cal_count += 1
+        
+        all_events = filtered_events
+        if non_cal_count > 0:
+            print(f"✓ Filtered out {non_cal_count} non-California events")
+        else:
+            print("✓ No non-California events found")
 
         # Load existing events to preserve them and avoid duplicates
         existing_events = []
@@ -904,6 +950,10 @@ async def main():
         {
             "calendar_api_id": "cal-sQ96963Pp5vVxZl",
             "name": "pnpsv"
+        },
+        {
+            "calendar_api_id": "cal-sCNm2eqHymNd4aq",
+            "name": "playful-sincerity-events"
         }
     ]
 
