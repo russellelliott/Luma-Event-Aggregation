@@ -615,6 +615,24 @@ def generate_city_summary(events, user_location):
     
     print(f"📊 Processing {len(cities)} cities for distance/time calculations...")
     
+    # Whitelist of Bay Area cities that might appear without state
+    whitelist = [
+        "San Francisco", "Palo Alto", "Mountain View", "Sunnyvale", "San Jose", 
+        "Santa Clara", "Cupertino", "Menlo Park", "Redwood City", "San Mateo", 
+        "Berkeley", "Oakland", "Fremont", "Hayward", "San Ramon", "Pleasanton", 
+        "Livermore", "Walnut Creek", "Los Gatos", "Saratoga", "Campbell", "Milpitas", 
+        "Union City", "Newark", "Daly City", "South San Francisco", "Burlingame", 
+        "Millbrae", "San Bruno", "Foster City", "Belmont", "San Carlos", "Atherton", 
+        "Woodside", "Portola Valley", "Los Altos", "Los Altos Hills", "Stanford", 
+        "East Palo Alto", "Emeryville", "Alameda", "Albany", "El Cerrito", "Richmond", 
+        "San Leandro", "Castro Valley", "Dublin", "Pleasant Hill", "Concord", 
+        "Lafayette", "Orinda", "Moraga", "Danville", "Alamo", "San Rafael", 
+        "Sausalito", "Tiburon", "Mill Valley", "Corte Madera", "Larkspur", 
+        "San Anselmo", "Fairfax", "Novato", "Half Moon Bay", "Pacifica", "Brisbane", 
+        "Hillsborough", "Sunol"
+    ]
+    whitelist_lower = [c.lower() for c in whitelist]
+
     for i, city in enumerate(cities, 1):
         city_info = {"event_count": city_counter[city]}
         
@@ -640,9 +658,10 @@ def generate_city_summary(events, user_location):
             continue
 
         # Filter 2: Must be in California
-        # We check for "California" or ", CA" in the city string
-        # This filters out cities like "Austin, Texas", "Lehi, Utah", "London, England"
-        if "California" not in city and ", CA" not in city:
+        # We check for "California" or ", CA" in the city string, or if it's in our whitelist
+        is_whitelisted = city.split(',')[0].strip().lower() in whitelist_lower
+        
+        if "California" not in city and ", CA" not in city and not is_whitelisted:
             print(f" ✗ Skipping (Not in California)")
             continue
 
