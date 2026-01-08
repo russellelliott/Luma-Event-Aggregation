@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Home, Plus } from 'lucide-react';
 import DistanceSlider from './components/DistanceSlider';
 import ClassificationFilter from './components/ClassificationFilter';
 import MultiDayCalendar from './components/MultiDayCalendar';
@@ -12,13 +13,13 @@ function App() {
   const [selectedCityIndex, setSelectedCityIndex] = useState(0);
   const [selectedFilters, setSelectedFilters] = useState({
     eventTypes: [],
-    audienceCategories: []
+    audienceCategories: [],
+    bookmarked: false
   });
   const [selectedDates, setSelectedDates] = useState([]);
   const [selectedDays, setSelectedDays] = useState(new Set());
   const [events, setEvents] = useState([]);
   const [view, setView] = useState('home');
-  const [bookmarkedEvents, setBookmarkedEvents] = useState([]);
 
   useEffect(() => {
     fetch('http://localhost:8000/cities')
@@ -35,8 +36,6 @@ function App() {
     const params = new URLSearchParams();
     
     // Add locations
-    // If selectedCityIndex is equal to cities.length, it means "All Events" is selected
-    // In that case, we don't send any location filter to get everything
     if (selectedCityIndex < cities.length) {
       const includedCities = cities.slice(0, selectedCityIndex + 1).map(c => c.city.split(',')[0]);
       includedCities.forEach(city => params.append('location', city));
@@ -47,6 +46,11 @@ function App() {
 
     // Add audience
     selectedFilters.audienceCategories.forEach(audience => params.append('audience', audience));
+
+    // Add bookmarked
+    if (selectedFilters.bookmarked) {
+      params.append('bookmarked', 'true');
+    }
 
     // Add dates
     selectedDates.forEach(date => params.append('dates', date.toISOString().split('T')[0]));
@@ -81,22 +85,6 @@ function App() {
 
   }, [cities, selectedCityIndex, selectedFilters, selectedDates, selectedDays]);
 
-  useEffect(() => {
-    if (view === 'bookmarks') {
-      fetch('http://localhost:8000/bookmarks')
-        .then(res => res.json())
-        .then(data => {
-          if (Array.isArray(data)) {
-            setBookmarkedEvents(data);
-          } else {
-            console.error("Received non-array bookmarks data:", data);
-            setBookmarkedEvents([]);
-          }
-        })
-        .catch(err => console.error('Error fetching bookmarks:', err));
-    }
-  }, [view]);
-
   const handleFilterChange = (category, values) => {
     setSelectedFilters(prev => ({
       ...prev,
@@ -106,14 +94,16 @@ function App() {
 
   const handleBookmark = (id, isBookmarked) => {
     // Optimistic update for home list
-    setEvents(prevEvents => prevEvents.map(event => 
-      event.id === id ? { ...event, bookmarked: isBookmarked } : event
-    ));
-
-    // Optimistic update for bookmarks list
-    if (view === 'bookmarks' && !isBookmarked) {
-      setBookmarkedEvents(prev => prev.filter(e => e.id !== id));
-    }
+    setEvents(prevEvents => {
+      const updated = prevEvents.map(event => 
+        event.id === id ? { ...event, bookmarked: isBookmarked } : event
+      );
+      // Remove from list if viewing bookmarks only and unbookmarking
+      if (selectedFilters.bookmarked && !isBookmarked) {
+        return updated.filter(e => e.id !== id);
+      }
+      return updated;
+    });
 
     fetch(`http://localhost:8000/events/${id}/bookmark?bookmarked=${isBookmarked}`, {
       method: 'POST'
@@ -126,12 +116,6 @@ function App() {
         setEvents(prevEvents => prevEvents.map(event => 
           event.id === id ? { ...event, bookmarked: !isBookmarked } : event
         ));
-        // Re-fetch bookmarks to restore state if needed
-        if (view === 'bookmarks') {
-          fetch('http://localhost:8000/bookmarks')
-            .then(res => res.json())
-            .then(data => setBookmarkedEvents(data || []));
-        }
       }
     })
     .catch(err => {
@@ -140,63 +124,46 @@ function App() {
       setEvents(prevEvents => prevEvents.map(event => 
         event.id === id ? { ...event, bookmarked: !isBookmarked } : event
       ));
-      if (view === 'bookmarks') {
-        fetch('http://localhost:8000/bookmarks')
-          .then(res => res.json())
-          .then(data => setBookmarkedEvents(data || []));
-      }
     });
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
       <div className="container mx-auto px-4 py-8">
-        <header className="text-center mb-12">
+        <header className="mb-8 relative flex items-center justify-center">
+          <button 
+            onClick={() => setView('home')}
+            className={`absolute left-0 p-3 rounded-full transition-colors ${
+              view === 'home' 
+                ? 'bg-blue-600 text-white shadow-md' 
+                : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
+            }`}
+            aria-label="Home"
+          >
+            <Home className="w-5 h-5" />
+          </button>
+
           <h1 className="text-3xl font-bold text-gray-900">Luma Event Aggregation</h1>
           
-          <div className="flex justify-center space-x-4 mt-6">
-            <button 
-              onClick={() => setView('home')}
-              className={`px-6 py-2 rounded-full font-medium transition-colors ${
-                view === 'home' 
-                  ? 'bg-blue-600 text-white shadow-md' 
-                  : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
-              }`}
-            >
-              Home
-            </button>
-            <button 
-              onClick={() => setView('bookmarks')}
-              className={`px-6 py-2 rounded-full font-medium transition-colors ${
-                view === 'bookmarks' 
-                  ? 'bg-blue-600 text-white shadow-md' 
-                  : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
-              }`}
-            >
-              Bookmarks
-            </button>
-            <button 
-              onClick={() => setView('add-event')}
-              className={`px-6 py-2 rounded-full font-medium transition-colors ${
-                view === 'add-event' 
-                  ? 'bg-blue-600 text-white shadow-md' 
-                  : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
-              }`}
-            >
-              Add Event
-            </button>
-          </div>
-
-          {view === 'home' && (
-            <>
-              <p className="mt-4 text-gray-600">Find events near you</p>
-              <p className="mt-2 text-blue-600 font-medium">Found {events.length} events</p>
-            </>
-          )}
+          <button 
+            onClick={() => setView('add-event')}
+            className={`absolute right-0 p-3 rounded-full transition-colors ${
+              view === 'add-event' 
+                ? 'bg-blue-600 text-white shadow-md' 
+                : 'bg-white text-blue-600 hover:bg-gray-50 border border-gray-200'
+            }`}
+            aria-label="Add Event"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
         </header>
 
         {view === 'home' && (
           <>
+            <div className="text-center mb-12">
+               <p className="mt-2 text-blue-600 font-medium">Found {events.length} events</p>
+            </div>
+
             <DistanceSlider 
               cities={cities}
               selectedCityIndex={selectedCityIndex}
@@ -231,28 +198,11 @@ function App() {
           </>
         )}
 
-        {view === 'bookmarks' && (
-          <div className="max-w-7xl mx-auto">
-            <h2 className="text-2xl font-bold mb-6 text-gray-900">Your Bookmarked Events</h2>
-            {bookmarkedEvents.length === 0 ? (
-              <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
-                <p className="text-gray-500">No bookmarked events yet.</p>
-                <button 
-                  onClick={() => setView('home')}
-                  className="mt-4 text-blue-600 hover:text-blue-800 font-medium"
-                >
-                  Browse events
-                </button>
-              </div>
-            ) : (
-              <EventCard events={bookmarkedEvents} onBookmark={handleBookmark} />
-            )}
-          </div>
-        )}
-
         {view === 'add-event' && (
           <AddEvent 
             onEventAdded={(newEvent) => {
+              // If we are currently showing a list that should include this event, append it
+              // But simplest is to just switch view and let fetch happen or just append
               setEvents(prev => [...prev, newEvent]);
               setView('home');
             }}

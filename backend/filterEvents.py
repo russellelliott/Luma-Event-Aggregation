@@ -198,7 +198,12 @@ def filter_by_dates_or_weekdays(events, dates, weekdays, pacific_tz):
             
     return filtered
 
-def apply_filters(events, location=None, dates=None, weekdays=None, event_types=None, audiences=None):
+def filter_by_bookmarked(events, bookmarked):
+    if not bookmarked:
+        return events
+    return [e for e in events if e.get('bookmarked', False)]
+
+def apply_filters(events, location=None, dates=None, weekdays=None, event_types=None, audiences=None, bookmarked=False):
     pacific_tz = ZoneInfo("America/Los_Angeles")
     events = filter_by_location(events, location)
     
@@ -208,6 +213,7 @@ def apply_filters(events, location=None, dates=None, weekdays=None, event_types=
         
     events = filter_by_event_type(events, event_types)
     events = filter_by_audience(events, audiences)
+    events = filter_by_bookmarked(events, bookmarked)
     return events
 
 def parse_args():

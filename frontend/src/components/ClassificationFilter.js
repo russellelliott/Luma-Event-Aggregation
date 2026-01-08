@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tag, Users } from 'lucide-react';
+import { Tag, Users, Bookmark } from 'lucide-react';
 
 const EVENT_TYPES = [
   { id: 'career_fair', label: 'Career Fair' },
@@ -27,34 +27,50 @@ export default function ClassificationFilter({ selectedFilters, onFilterChange }
     onFilterChange(category, newValues);
   };
 
+  const handleBookmarkToggle = () => {
+    onFilterChange('bookmarked', !selectedFilters.bookmarked);
+  };
+
   return (
     <div className="space-y-6">
+      {/* Bookmarks */}
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+        <button
+          onClick={handleBookmarkToggle}
+          className={`
+            w-full flex items-center justify-center gap-2 p-3 rounded-lg border transition-all font-medium
+            ${selectedFilters.bookmarked
+              ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+              : 'text-gray-600 hover:bg-gray-50 border-gray-200'
+            }
+          `}
+        >
+          <Bookmark className={`w-4 h-4 ${selectedFilters.bookmarked ? 'fill-current' : ''}`} />
+          Show Bookmarked Only
+        </button>
+      </div>
+
       {/* Event Types */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
         <div className="flex items-center gap-2 mb-4">
           <Tag className="w-5 h-5 text-blue-600" />
           <h3 className="text-lg font-semibold text-gray-800">Event Types</h3>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-wrap gap-2">
           {EVENT_TYPES.map(type => (
-            <label 
-              key={type.id} 
+            <button
+              key={type.id}
+              onClick={() => handleToggle('eventTypes', type.id)}
               className={`
-                flex items-center p-3 rounded-lg border cursor-pointer transition-all
+                px-3 py-1.5 rounded-full text-sm font-medium border transition-all
                 ${selectedFilters.eventTypes?.includes(type.id)
-                  ? 'bg-blue-50 border-blue-200'
-                  : 'hover:bg-gray-50 border-gray-200'
+                  ? 'bg-blue-100 text-blue-700 border-blue-200'
+                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
                 }
               `}
             >
-              <input
-                type="checkbox"
-                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                checked={selectedFilters.eventTypes?.includes(type.id) || false}
-                onChange={() => handleToggle('eventTypes', type.id)}
-              />
-              <span className="ml-3 text-sm font-medium text-gray-700">{type.label}</span>
-            </label>
+              {type.label}
+            </button>
           ))}
         </div>
       </div>
@@ -65,26 +81,21 @@ export default function ClassificationFilter({ selectedFilters, onFilterChange }
           <Users className="w-5 h-5 text-purple-600" />
           <h3 className="text-lg font-semibold text-gray-800">Audience</h3>
         </div>
-        <div className="space-y-2">
+        <div className="flex flex-wrap gap-2">
           {AUDIENCE_CATEGORIES.map(category => (
-            <label 
+            <button
               key={category.id}
+              onClick={() => handleToggle('audienceCategories', category.id)}
               className={`
-                flex items-center p-3 rounded-lg border cursor-pointer transition-all
+                px-3 py-1.5 rounded-full text-sm font-medium border transition-all
                 ${selectedFilters.audienceCategories?.includes(category.id)
-                  ? 'bg-purple-50 border-purple-200'
-                  : 'hover:bg-gray-50 border-gray-200'
+                  ? 'bg-purple-100 text-purple-700 border-purple-200'
+                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
                 }
               `}
             >
-              <input
-                type="checkbox"
-                className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
-                checked={selectedFilters.audienceCategories?.includes(category.id) || false}
-                onChange={() => handleToggle('audienceCategories', category.id)}
-              />
-              <span className="ml-3 text-sm font-medium text-gray-700">{category.label}</span>
-            </label>
+              {category.label}
+            </button>
           ))}
         </div>
       </div>
