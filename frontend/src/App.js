@@ -160,14 +160,11 @@ function App() {
 
         {view === 'home' && (
           <>
-            <div className="text-center mb-12">
-               <p className="mt-2 text-blue-600 font-medium">Found {events.length} events</p>
-            </div>
-
             <DistanceSlider 
               cities={cities}
               selectedCityIndex={selectedCityIndex}
               onCityChange={setSelectedCityIndex}
+              eventsCount={events.length}
             />
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
