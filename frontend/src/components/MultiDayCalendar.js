@@ -111,6 +111,12 @@ export default function MultiDayCalendar({ selectedDates, onDatesChange }) {
           </div>
           <div className="flex gap-2">
             <button
+              onClick={() => setCurrentDate(new Date())}
+              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
+            >
+              Today
+            </button>
+            <button
               onClick={previousMonth}
               className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
             >
