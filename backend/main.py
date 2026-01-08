@@ -248,6 +248,14 @@ def add_event(event_url: EventUrl):
         if classification:
             event_type = classification.get('event_type', 'networking')
             audience = classification.get('audience', 'general')
+
+        # Helper to ensure fields are strings, extracting 'name' if it's a dict (common in JSON-LD)
+        def ensure_string(val):
+            if val is None:
+                return None
+            if isinstance(val, dict):
+                return val.get('name') or str(val)
+            return str(val)
             
         # 3. Prepare data structure matching schema
         api_id = info.get('url', '').split('/')[-1]
@@ -258,11 +266,11 @@ def add_event(event_url: EventUrl):
         # Construct 'event' struct
         event_struct = {
             'api_id': api_id,
-            'name': info.get('name'),
-            'description': info.get('description'),
+            'name': ensure_string(info.get('name')),
+            'description': ensure_string(info.get('description')),
             'start_at': start_at,
             'end_at': end_at,
-            'url': info.get('url'),
+            'url': ensure_string(info.get('url')),
             'event_type': event_type,
             'audience': audience
         }
@@ -283,10 +291,10 @@ def add_event(event_url: EventUrl):
         geo_address_info = {}
         address_data = info.get('address')
         if isinstance(address_data, dict):
-            geo_address_info['city'] = address_data.get('addressLocality')
-            geo_address_info['region'] = address_data.get('addressRegion')
-            geo_address_info['country'] = address_data.get('addressCountry')
-            geo_address_info['address'] = address_data.get('streetAddress')
+            geo_address_info['city'] = ensure_string(address_data.get('addressLocality'))
+            geo_address_info['region'] = ensure_string(address_data.get('addressRegion'))
+            geo_address_info['country'] = ensure_string(address_data.get('addressCountry'))
+            geo_address_info['address'] = ensure_string(address_data.get('streetAddress'))
             
             # Construct city_state
             city = geo_address_info.get('city')
