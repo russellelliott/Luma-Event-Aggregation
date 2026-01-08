@@ -150,7 +150,8 @@ def get_events(
     weekdays: Optional[List[str]] = Query(None),
     event_type: Optional[List[str]] = Query(None, alias="event-type"),
     audience: Optional[List[str]] = Query(None),
-    bookmarked: bool = Query(False)
+    bookmarked: bool = Query(False),
+    include_past: bool = Query(False)
 ):
     try:
         filtered_events = apply_filters(
@@ -160,7 +161,8 @@ def get_events(
             weekdays=weekdays, 
             event_types=event_type, 
             audiences=audience,
-            bookmarked=bookmarked
+            bookmarked=bookmarked,
+            include_past=include_past
         )
         
         # Normalize URLs in the response

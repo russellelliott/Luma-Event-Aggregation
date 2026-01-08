@@ -203,8 +203,35 @@ def filter_by_bookmarked(events, bookmarked):
         return events
     return [e for e in events if e.get('bookmarked', False)]
 
-def apply_filters(events, location=None, dates=None, weekdays=None, event_types=None, audiences=None, bookmarked=False):
+def filter_by_future(events, include_past, pacific_tz):
+    if include_past:
+        return events
+    
+    # Get current date in Pacific time
+    current_date = datetime.now(pacific_tz).date()
+    
+    filtered = []
+    for e in events:
+        # Handle both nested and flat event structures
+        event_data = e.get('event', e) if isinstance(e, dict) else e
+        start_at = event_data.get('start_at')
+        if not start_at:
+            continue
+        
+        event_date, _ = get_local_date_and_weekday(start_at, pacific_tz)
+        
+        # Keep events from today onwards
+        if event_date >= current_date:
+            filtered.append(e)
+            
+    return filtered
+
+def apply_filters(events, location=None, dates=None, weekdays=None, event_types=None, audiences=None, bookmarked=False, include_past=False):
     pacific_tz = ZoneInfo("America/Los_Angeles")
+    
+    # Filter by past/future first
+    events = filter_by_future(events, include_past, pacific_tz)
+    
     events = filter_by_location(events, location)
     
     # Apply dates and weekdays with OR logic if either is present
