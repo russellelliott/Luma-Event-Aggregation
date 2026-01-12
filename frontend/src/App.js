@@ -18,7 +18,7 @@ function App() {
   });
   const [selectedDates, setSelectedDates] = useState([]);
   const [selectedDays, setSelectedDays] = useState(new Set());
-  const [events, setEvents] = useState([]);
+  const [fetchedEvents, setFetchedEvents] = useState([]);
   const [view, setView] = useState('home');
 
   useEffect(() => {
@@ -52,38 +52,51 @@ function App() {
       params.append('bookmarked', 'true');
     }
 
-    // Add dates
-    selectedDates.forEach(date => params.append('dates', date.toISOString().split('T')[0]));
-
-    // Add weekdays
-    const weekdayMap = {
-      'mon': 'Monday',
-      'tue': 'Tuesday',
-      'wed': 'Wednesday',
-      'thu': 'Thursday',
-      'fri': 'Friday',
-      'sat': 'Saturday',
-      'sun': 'Sunday'
-    };
-    Array.from(selectedDays).forEach(day => {
-      if (weekdayMap[day]) {
-        params.append('weekdays', weekdayMap[day]);
-      }
-    });
+    // Note: Dates and weekdays filtering is now done client-side to allow
+    // the calendar to show event counts for all days.
 
     fetch(`http://localhost:8000/events?${params.toString()}`)
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
-          setEvents(data);
+          setFetchedEvents(data);
         } else {
           console.error("Received non-array data:", data);
-          setEvents([]);
+          setFetchedEvents([]);
         }
       })
       .catch(err => console.error('Error fetching events:', err));
 
-  }, [cities, selectedCityIndex, selectedFilters, selectedDates, selectedDays]);
+  }, [cities, selectedCityIndex, selectedFilters]);
+
+  // Filter events client-side based on Date/Weekday selection
+  const visibleEvents = React.useMemo(() => {
+      if (selectedDates.length === 0 && selectedDays.size === 0) {
+          return fetchedEvents;
+      }
+      return fetchedEvents.filter(item => {
+          const event = item.event || item;
+          if (!event.start_at) return false;
+          
+          const d = new Date(event.start_at);
+          
+          // Check specific dates
+          const dateMatch = selectedDates.some(sd => 
+              sd.getFullYear() === d.getFullYear() &&
+              sd.getMonth() === d.getMonth() &&
+              sd.getDate() === d.getDate()
+          );
+
+          if (dateMatch) return true;
+
+          // Check weekdays
+          // 'Mon', 'Tue' -> 'mon', 'tue'
+          const dayName = d.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
+          if (selectedDays.has(dayName)) return true;
+          
+          return false;
+      });
+  }, [fetchedEvents, selectedDates, selectedDays]);
 
   const handleFilterChange = (category, values) => {
     setSelectedFilters(prev => ({
@@ -94,7 +107,7 @@ function App() {
 
   const handleBookmark = (id, isBookmarked) => {
     // Optimistic update for home list
-    setEvents(prevEvents => {
+    setFetchedEvents(prevEvents => {
       const updated = prevEvents.map(event => 
         event.id === id ? { ...event, bookmarked: isBookmarked } : event
       );
@@ -113,7 +126,7 @@ function App() {
       if (data.error) {
         console.error('Error bookmarking event:', data.error);
         // Revert on error
-        setEvents(prevEvents => prevEvents.map(event => 
+        setFetchedEvents(prevEvents => prevEvents.map(event => 
           event.id === id ? { ...event, bookmarked: !isBookmarked } : event
         ));
       }
@@ -121,7 +134,7 @@ function App() {
     .catch(err => {
       console.error('Error bookmarking event:', err);
       // Revert on error
-      setEvents(prevEvents => prevEvents.map(event => 
+      setFetchedEvents(prevEvents => prevEvents.map(event => 
         event.id === id ? { ...event, bookmarked: !isBookmarked } : event
       ));
     });
@@ -164,7 +177,7 @@ function App() {
               cities={cities}
               selectedCityIndex={selectedCityIndex}
               onCityChange={setSelectedCityIndex}
-              eventsCount={events.length}
+              eventsCount={visibleEvents.length}
             />
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -185,12 +198,13 @@ function App() {
                 <MultiDayCalendar 
                   selectedDates={selectedDates}
                   onDatesChange={setSelectedDates}
+                  events={fetchedEvents}
                 />
               </div>
             </div>
 
             <div className="mt-12">
-              <EventCard events={events} onBookmark={handleBookmark} />
+              <EventCard events={visibleEvents} onBookmark={handleBookmark} />
             </div>
           </>
         )}
@@ -200,7 +214,7 @@ function App() {
             onEventAdded={(newEvent) => {
               // If we are currently showing a list that should include this event, append it
               // But simplest is to just switch view and let fetch happen or just append
-              setEvents(prev => [...prev, newEvent]);
+              setFetchedEvents(prev => [...prev, newEvent]);
               setView('home');
             }}
             onCancel={() => setView('home')}

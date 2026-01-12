@@ -1,7 +1,24 @@
 import React, { useState } from 'react';
 import { Calendar, X } from 'lucide-react';
+import Badge from '@mui/material/Badge';
+import { styled } from '@mui/material/styles';
 
-export default function MultiDayCalendar({ selectedDates, onDatesChange }) {
+const StyledBadge = styled(Badge)(({ theme }) => ({
+  '& .MuiBadge-badge': {
+    right: -3,
+    top: 3,
+    border: `2px solid #fff`,
+    padding: '0 4px',
+    backgroundColor: '#3b82f6', // Tailwind blue-500
+    color: 'white',
+    fontSize: '0.6rem',
+    height: '16px',
+    minWidth: '16px',
+    zIndex: 10,
+  },
+}));
+
+export default function MultiDayCalendar({ selectedDates, onDatesChange, events = [] }) {
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -65,6 +82,17 @@ export default function MultiDayCalendar({ selectedDates, onDatesChange }) {
     return `${monthNames[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
   };
 
+  const getEventCount = (date) => {
+    return events.filter(item => {
+      const event = item.event || item;
+      if (!event.start_at) return false;
+      const eventDate = new Date(event.start_at);
+      return eventDate.getFullYear() === date.getFullYear() &&
+             eventDate.getMonth() === date.getMonth() &&
+             eventDate.getDate() === date.getDate();
+    }).length;
+  };
+
   const renderCalendar = () => {
     const daysInMonth = getDaysInMonth(currentDate);
     const firstDay = getFirstDayOfMonth(currentDate);
@@ -83,6 +111,8 @@ export default function MultiDayCalendar({ selectedDates, onDatesChange }) {
         d.getMonth() === dayDate.getMonth() &&
         d.getDate() === dayDate.getDate()
       );
+
+      const eventCount = getEventCount(dayDate);
       
       days.push(
         <button
@@ -91,7 +121,9 @@ export default function MultiDayCalendar({ selectedDates, onDatesChange }) {
           className={`h-12 rounded-lg font-medium transition-all hover:bg-blue-50 
             ${selected ? 'bg-blue-500 text-white hover:bg-blue-600' : 'text-gray-700'}`}
         >
-          {day}
+          <StyledBadge badgeContent={eventCount} invisible={eventCount === 0}>
+            {day}
+          </StyledBadge>
         </button>
       );
     }
