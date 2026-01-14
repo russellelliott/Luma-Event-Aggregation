@@ -27,7 +27,14 @@ def is_valid(event_entry):
     return (current_type and current_type.lower() in VALID_EVENT_TYPES and 
             current_audience and current_audience.lower() in VALID_AUDIENCE_TYPES)
 
-def find_closest_match(value, valid_options):
+def find_closest_match(value, valid_options, cutoff=0.6):
+    """Find closest match with fuzzy matching.
+    
+    Args:
+        value: The value to match
+        valid_options: Valid options to match against
+        cutoff: Similarity threshold (0-1). Lower = more tolerant. Default 0.6, use 0.3 for audience matching.
+    """
     if not value or not isinstance(value, str):
         return None
     # Normalize inputs
@@ -36,11 +43,18 @@ def find_closest_match(value, valid_options):
     if value_lower in valid_options:
         return value_lower
     # Get closest match
-    matches = difflib.get_close_matches(value_lower, valid_options, n=1, cutoff=0.4)
+    matches = difflib.get_close_matches(value_lower, valid_options, n=1, cutoff=cutoff)
     return matches[0] if matches else None
 
 def classify_and_fix_event(event, model="phi3:3.8b-mini-128k-instruct-q4_K_M", max_retries=3):
-    """Classify event, and if invalid, attempt to fuzzy match results."""
+    """Classify event, and if invalid, attempt to fuzzy match results.
+    
+    Fallback strategy:
+    1. Try direct match
+    2. Try fuzzy matching with moderate tolerance
+    3. Try fuzzy matching with high tolerance for audience (more lenient)
+    4. Fall back to "general" audience if all else fails
+    """
     name = event.get('name', 'Unknown Event')
     description = event.get('description', '')
     if not description:
@@ -72,17 +86,29 @@ def classify_and_fix_event(event, model="phi3:3.8b-mini-128k-instruct-q4_K_M", m
                     audience and audience.lower() in VALID_AUDIENCE_TYPES):
                     return classification
                 
-                # If invalid, try fuzzy match
+                # If invalid, try fuzzy match with standard tolerance
                 print(f"  Attempt {attempt+1}: Invalid raw output (Type: '{event_type}', Audience: '{audience}'). Checking similarity...")
                 
-                new_type = find_closest_match(event_type, list(VALID_EVENT_TYPES))
-                new_audience = find_closest_match(audience, list(VALID_AUDIENCE_TYPES))
+                new_type = find_closest_match(event_type, list(VALID_EVENT_TYPES), cutoff=0.6)
+                new_audience = find_closest_match(audience, list(VALID_AUDIENCE_TYPES), cutoff=0.6)
                 
                 if new_type and new_audience:
                     print(f"  -> Fixed via similarity: Type '{event_type}'->'{new_type}', Audience '{audience}'->'{new_audience}'")
                     return {"event_type": new_type, "audience": new_audience}
-                else:
-                    print(f"  -> Could not fix via similarity. Retrying...")
+                
+                # If still invalid, try more lenient matching (cutoff=0.3) for audience
+                if new_type:
+                    new_audience_lenient = find_closest_match(audience, list(VALID_AUDIENCE_TYPES), cutoff=0.3)
+                    if new_audience_lenient:
+                        print(f"  -> Fixed via lenient similarity: Type '{event_type}'->'{new_type}', Audience '{audience}'->'{new_audience_lenient}'")
+                        return {"event_type": new_type, "audience": new_audience_lenient}
+                
+                # Ultimate fallback: if we have a valid type but bad audience, mark as "general"
+                if new_type:
+                    print(f"  -> Defaulting to 'general' audience: Type '{event_type}'->'{new_type}', Audience '{audience}'->'general'")
+                    return {"event_type": new_type, "audience": "general"}
+                
+                print(f"  -> Could not fix via similarity. Retrying...")
 
             except json.JSONDecodeError:
                 print(f"  Attempt {attempt+1}: Failed to parse JSON. Retrying...")
