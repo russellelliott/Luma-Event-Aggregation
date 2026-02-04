@@ -13,7 +13,7 @@ function AddEvent({ onEventAdded, onCancel }) {
     setSuccess(null);
 
     try {
-      const response = await fetch('http://localhost:8000/add-event', {
+      const response = await fetch('http://localhost:8001/add-event', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

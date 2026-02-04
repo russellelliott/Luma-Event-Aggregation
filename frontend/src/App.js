@@ -22,7 +22,7 @@ function App() {
   const [view, setView] = useState('home');
 
   useEffect(() => {
-    fetch('http://localhost:8000/cities')
+    fetch('http://localhost:8001/cities')
       .then(res => res.json())
       .then(data => {
         setCities(data);
@@ -55,7 +55,7 @@ function App() {
     // Note: Dates and weekdays filtering is now done client-side to allow
     // the calendar to show event counts for all days.
 
-    fetch(`http://localhost:8000/events?${params.toString()}`)
+    fetch(`http://localhost:8001/events?${params.toString()}`)
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
@@ -118,7 +118,7 @@ function App() {
       return updated;
     });
 
-    fetch(`http://localhost:8000/events/${id}/bookmark?bookmarked=${isBookmarked}`, {
+    fetch(`http://localhost:8001/events/${id}/bookmark?bookmarked=${isBookmarked}`, {
       method: 'POST'
     })
     .then(res => res.json())
