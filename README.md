@@ -7,9 +7,31 @@ This project aggregates events from Luma, classifies them using AI, and provides
 -   **`backend/`**: Python-based backend that handles event fetching, aggregation, classification (using LLMs), and serves a REST API.
 -   **`frontend/`**: React-based frontend that provides the user interface for browsing events.
 
-## Getting Started
+## Quick Start
 
-To set up the entire project, you will need to configure and run both the backend and the frontend.
+The easiest way to run the application is using the provided startup script.
+
+1.  **Make the script executable (first time only):**
+    ```bash
+    chmod +x start.sh
+    ```
+
+2.  **Run the application:**
+    ```bash
+    ./start.sh
+    ```
+
+    You will be presented with two options:
+    *   **Option 1**: Start App Only (Skips data pipeline & backup, just starts servers)
+    *   **Option 2**: Run Full Pipeline (Backs up database -> Fetches/Classifies events -> Starts servers)
+
+The script uses **port 8001** for the backend and **port 3001** for the frontend to avoid conflicts.
+
+---
+
+## Manual Setup
+
+If you prefer to run services individually or need development specifics:
 
 ### 1. Backend Setup
 
@@ -23,19 +45,3 @@ The frontend is a React application that connects to the backend API.
 
 👉 **[Read the Frontend README](frontend/README.md)** for installation and running instructions.
 
-## Quick Run Guide
-
-1.  **Start the Backend**:
-    ```bash
-    cd backend
-    # (Activate your virtual environment)
-    uvicorn main:app --reload
-    ```
-
-2.  **Start the Frontend**:
-    ```bash
-    cd frontend
-    npm start
-    ```
-
-3.  Access the application at `http://localhost:3000`.
