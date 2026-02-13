@@ -30,5 +30,22 @@ try:
                 print("Vector data loaded (length):", len(vector))
              else:
                 print("Vector is None")
+
+        # Basic Stats on Cosine Distance
+        import numpy as np
+        
+        distances = [e.get('cosine_distance') for e in events if e.get('cosine_distance') is not None]
+        
+        if distances:
+            print("\n----- Cosine Distance Statistics -----")
+            print(f"Count: {len(distances)}")
+            print(f"Min: {min(distances):.4f}")
+            print(f"Mean: {sum(distances)/len(distances):.4f}")
+            print(f"Max: {max(distances):.4f}")
+            if len(distances) > 1:
+                print(f"Std Dev: {np.std(distances):.4f}")
+            print("--------------------------------------\n")
+        else:
+            print("\nNo cosine distances found (are any events bookmarked?)")
 except Exception as e:
     print(f"Execution failed: {e}")

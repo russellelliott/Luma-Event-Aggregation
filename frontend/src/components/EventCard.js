@@ -275,24 +275,28 @@ const SingleEventCardContent = ({ item, onBookmark }) => {
     // Similarity Score / Distance
     const distance = item.cosine_distance;
     const hasDistance = distance !== undefined && distance !== null;
-    // Format distance as similarity % (1 - distance) * 100
-    // distance is roughly 0 (identical) to 1 (orthogonal) to 2 (opposite)
-    // For practical purposes in embeddings, 0.0 is exact match.
-    // Let's verify range. Cosine distance usually [0, 2].
-    // Let's display "Relevance Score"
-    // 1 - distance is similarity [-1, 1].
-    // If distance is explicitly cosine distance [0, 2]
-    // 0 -> 100% match
     
-    // Let's just show "Distance: 0.12" for now or convert to a nice "Match Score"
-    // Match Score = (1 - distance) * 100 might be negative if distance > 1.
-    // Embeddings are usually normalized so dot product is [-1, 1].
-    // Distance = 1 - dot product => [0, 2].
-    // Let's scale [0, 1] distance to 100-0% score?
-    // Usually semantic similarity is positive.
+    // Calculate Match Score based on observed statistics (Min: ~0.06, Mean: ~0.13, Max: ~0.32)
+    // We want a score of 0-100%.
+    // 0.05 distance is extremely close (should be ~95-100%)
+    // 0.32 distance is far (should be ~0-20%)
     
-    // Let's just create a simple "AI Match" badge if distance is low enough, or show the value.
-    const matchScore = hasDistance ? Math.round((1 - distance) * 100) : null;
+    // Linear interpolation:
+    // Score = 100 - ((distance - min_observed) / (max_observed - min_observed)) * 100
+    // But let's act as if 0 is possible perfect match.
+    // Let's assume a "Good" match is < 0.10 and a "Bad" match is > 0.30
+    
+    let matchScore = null;
+    if (hasDistance) {
+        // Clamp distance to reasonable bounds based on data
+        // Min 0.05, Max 0.35
+        const minVal = 0.05;
+        const maxVal = 0.35;
+        
+        // Calculate percentage: Lower distance = Higher score
+        let score = (1 - (Math.max(minVal, Math.min(distance, maxVal)) - minVal) / (maxVal - minVal)) * 100;
+        matchScore = Math.round(score);
+    }
 
     return (
         <>
@@ -315,8 +319,13 @@ const SingleEventCardContent = ({ item, onBookmark }) => {
 
             {hasDistance && (
                 <div className="flex items-center space-x-1 mb-3">
-                    <div className="text-xs font-bold text-white bg-gradient-to-r from-blue-500 to-purple-500 px-2 py-1 rounded-md shadow-sm">
-                        {matchScore}% Match
+                    <div className={`text-xs font-bold text-white px-2 py-1 rounded-md shadow-sm ${
+                        matchScore >= 80 ? 'bg-gradient-to-r from-emerald-500 to-green-500' :
+                        matchScore >= 60 ? 'bg-gradient-to-r from-blue-500 to-cyan-500' :
+                        matchScore >= 40 ? 'bg-gradient-to-r from-indigo-500 to-purple-500' :
+                        'bg-gradient-to-r from-gray-500 to-gray-600'
+                    }`}>
+                        {Math.max(0, matchScore)}% Match
                     </div>
                 </div>
             )}
