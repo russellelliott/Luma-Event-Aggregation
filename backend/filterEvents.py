@@ -5,6 +5,8 @@ import argparse
 import lancedb
 import os
 import numpy as np
+from datetime import datetime, timezone as dt_timezone
+from zoneinfo import ZoneInfo
 
 
 def convert_to_serializable(obj):
@@ -53,6 +55,62 @@ def load_events(db_path=None):
         
         table = db.open_table("events")
         events = table.to_pandas().to_dict('records')
+        
+        # Calculate cosine similarity if embeddings exist
+        try:
+            # Check for numpy 2.x which might not be compatible with existing code if it uses removed features.
+            # But standard numpy operations are fine.
+            
+            # Find bookmarked events with embeddings
+            bookmarked_vectors = []
+            for e in events:
+                # Handle nested dict if necessary, bookmarked is top level usually
+                is_bookmarked = e.get('bookmarked', False)
+                vector = e.get('vector')
+                
+                if is_bookmarked and vector is not None and isinstance(vector, (list, np.ndarray)):
+                     bookmarked_vectors.append(vector)
+            
+            if bookmarked_vectors:
+                # Calculate mean vector
+                # Convert to numpy array for efficiency
+                bookmark_matrix = np.array(bookmarked_vectors)
+                mean_vector = np.mean(bookmark_matrix, axis=0)
+                
+                # Normalize mean vector for cosine similarity
+                norm_mean = np.linalg.norm(mean_vector)
+                if norm_mean > 0:
+                    mean_vector = mean_vector / norm_mean
+                    
+                    # Calculate distance for all events
+                    for e in events:
+                        vec = e.get('vector')
+                        if vec is not None and isinstance(vec, (list, np.ndarray)):
+                            vec_np = np.array(vec)
+                            norm_vec = np.linalg.norm(vec_np)
+                            if norm_vec > 0:
+                                # Cosine Similarity = dot product of normalized vectors
+                                # We already normalized mean_vector.
+                                cosine_sim = np.dot(vec_np / norm_vec, mean_vector)
+                                # Distance = 1 - Similarity
+                                # Ensure range [0, 2]
+                                e['cosine_distance'] = float(1 - cosine_sim)
+                            else:
+                                e['cosine_distance'] = None
+                        else:
+                            e['cosine_distance'] = None
+            else:
+                # No bookmarks with vectors, so no distance
+                for e in events:
+                    e['cosine_distance'] = None
+
+        except Exception as e:
+            print(f"⚠️ Warning: Failed to calculate embeddings distance: {e}")
+            # Ensure field exists even if calculation fails
+            for e in events:
+                if 'cosine_distance' not in e:
+                   e['cosine_distance'] = None
+
         print(f"📊 Loaded {len(events)} events from LanceDB")
         return events
     except Exception as e:
@@ -227,6 +285,59 @@ def filter_by_future(events, include_past, pacific_tz):
     return filtered
 
 def apply_filters(events, location=None, dates=None, weekdays=None, event_types=None, audiences=None, bookmarked=False, include_past=False):
+    # Recalculate cosine distances based on current bookmarks
+    # This ensures dynamic updates when bookmarks change
+    try:
+        # Find all currently bookmarked events with embeddings
+        # Use simple iteration for safety
+        bookmarked_vectors = []
+        
+        # Helper to safely navigate
+        def get_field(item, key):
+            val = item.get(key)
+            if val is not None: return val
+            if isinstance(item.get('event'), dict):
+                return item['event'].get(key)
+            return None
+
+        for e in events:
+            is_mark = get_field(e, 'bookmarked')
+            vector = e.get('vector') # Vector is top-level only based on schema
+            
+            if is_mark is True and vector is not None and isinstance(vector, (list, np.ndarray)):
+                bookmarked_vectors.append(vector)
+
+        if bookmarked_vectors:
+            # Calculate mean vector
+            bookmark_matrix = np.array(bookmarked_vectors)
+            mean_vector = np.mean(bookmark_matrix, axis=0)
+            norm_mean = np.linalg.norm(mean_vector)
+
+            if norm_mean > 0:
+                mean_vector_normalized = mean_vector / norm_mean
+                
+                for e in events:
+                    vec = e.get('vector')
+                    if vec is not None and isinstance(vec, (list, np.ndarray)):
+                        vec_np = np.array(vec)
+                        norm_vec = np.linalg.norm(vec_np)
+                        if norm_vec > 0:
+                            # Cosine Sim
+                            cosine_sim = np.dot(vec_np / norm_vec, mean_vector_normalized)
+                            # Distance
+                            e['cosine_distance'] = float(1 - cosine_sim)
+                        else:
+                            e['cosine_distance'] = None
+                    else:
+                        e['cosine_distance'] = None
+            else:
+                 for e in events: e['cosine_distance'] = None
+        else:
+             for e in events: e['cosine_distance'] = None
+
+    except Exception as e:
+        print(f"⚠️ Error updating cosine distances in apply_filters: {e}")
+
     pacific_tz = ZoneInfo("America/Los_Angeles")
     
     # Filter by past/future first
