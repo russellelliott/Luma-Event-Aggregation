@@ -38,6 +38,8 @@ import requests
 import googlemaps
 from dotenv import load_dotenv
 import lancedb
+from sentence_transformers import SentenceTransformer
+import torch
 
 # Load environment variables from .env file
 load_dotenv()
@@ -861,6 +863,22 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
 
         # Initialize fields for NEW events only
         print("📝 Initializing fields for new events...")
+
+        # Initialize model if we have new events
+        model = None
+        if new_events:
+            print("🧠 Loading model for embeddings...")
+            try:
+                device = "mps" if torch.backends.mps.is_available() else "cpu"
+                print(f"Using device: {device}")
+                model = SentenceTransformer(
+                    'jinaai/jina-embeddings-v2-base-en',
+                    trust_remote_code=True,
+                    device=device
+                )
+            except Exception as e:
+                print(f"⚠️ Failed to load embedding model: {e}")
+
         for event in new_events:
             # Initialize classification fields if not present
             if 'event_type' not in event:
@@ -873,6 +891,27 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
             
             # Generate new UUID
             event['id'] = str(uuid.uuid4())
+
+            # Generate Embedding
+            if model:
+                try:
+                    title = event.get('title', '')
+                    description = event.get('description', '')
+                    
+                    # Check nested 'event' key if top level is empty
+                    if not title and isinstance(event.get('event'), dict):
+                        title = event['event'].get('title', '')
+                    if not description and isinstance(event.get('event'), dict):
+                        description = event['event'].get('description', '')
+                        
+                    if not title: title = ""
+                    if not description: description = ""
+
+                    combined_text = f"{title}\n\n{description}"
+                    event['vector'] = model.encode(combined_text).tolist()
+                except Exception as e:
+                    print(f"⚠️ Failed to generate embedding for event: {e}")
+                    event['vector'] = None
 
         # Combine existing and new events
         final_events = existing_events + new_events
