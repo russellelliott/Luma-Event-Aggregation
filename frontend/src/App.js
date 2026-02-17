@@ -70,25 +70,40 @@ function App() {
     // Get max distance from current slider position
     // If selectedCityIndex exceeds bounds, use the last one or failsafe
     const cityIndex = Math.min(selectedCityIndex, cities.length - 1);
-    const maxDistance = cities[cityIndex]?.distance_miles;
     
-    if (maxDistance === undefined) {
-      setFilteredEvents(allEvents);
-      return;
+    // Calculate the effective max distance.
+    // Since cities might be sorted by duration but we filter by distance, specific cities later in the list
+    // might have shorter distances (e.g. traffic differences).
+    // To ensure the slider is monotonic (dragging right always includes more or same area),
+    // we should take the maximum distance of all cities up to the selected index.
+    const citiesUpToSlider = cities.slice(0, cityIndex + 1);
+    const maxDistance = Math.max(...citiesUpToSlider.map(c => c.distance_miles || 0));
+    
+    if (maxDistance === 0) {
+        // Fallback if data is missing
+        setFilteredEvents(allEvents);
+        return;
     }
 
     const filtered = allEvents.filter(event => {
       const distanceInfo = event.distance_info;
-      // Include events without distance info? Usually better to exclude if enforcing a radius
-      // But user logic says "return distanceInfo.distance_miles <= maxDistance"
       
-      if (!distanceInfo || typeof distanceInfo.distance_miles !== 'number') {
-        // If no distance info, it's either far away or unknown. 
-        // For safety, maybe include if maxDistance is very large? 
-        // But logic says strict inequality.
-        return false; 
+      // If we have valid distance info, use it to filter
+      if (distanceInfo && typeof distanceInfo.distance_miles === 'number') {
+        return distanceInfo.distance_miles <= maxDistance;
       }
-      return distanceInfo.distance_miles <= maxDistance;
+      
+      // If no distance info is available (e.g. "Unknown city" or parsing error),
+      // we have to decide whether to show it.
+      // 
+      // If the slider is at the very beginning (closest only), we probably want to be strict.
+      // If the slider is further out, being permissive prevents missing events.
+      //
+      // However, since we want "events closer than that", undefined distance usually implies 
+      // we don't know where it is, so it's safer to hide it unless the slider is maxed out.
+      // 
+      // Current behavior: strict filtering (must have distance <= max).
+      return false; 
     });
     
     setFilteredEvents(filtered);
