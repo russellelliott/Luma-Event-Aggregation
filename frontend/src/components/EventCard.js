@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { Calendar, Clock, MapPin, Users, Ticket, Tag, Bookmark, Layers, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Calendar, MapPin, Users, Tag, Bookmark, Layers, ChevronRight, ChevronLeft } from 'lucide-react';
 
 /**
  * Component to handle description truncation and expansion
@@ -8,18 +8,18 @@ import { Calendar, Clock, MapPin, Users, Ticket, Tag, Bookmark, Layers, ChevronR
 const Description = ({ text }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   
-  if (!text) return <p className="text-gray-700 mb-4 flex-1">No description provided.</p>;
+  if (!text) return <p className="text-xs text-gray-700 mb-4 flex-1">No description provided.</p>;
 
   // Heuristic: only show toggle if text is reasonably long
   const shouldTruncate = text.length > 150;
 
   if (!shouldTruncate) {
-      return <p className="text-gray-700 mb-4 flex-1">{text}</p>;
+      return <p className="text-xs text-gray-700 mb-4 flex-1">{text}</p>;
   }
 
   return (
     <div className="mb-4 flex-1">
-      <p className={`text-gray-700 ${isExpanded ? '' : 'line-clamp-3'}`}>
+      <p className={`text-xs text-gray-700 ${isExpanded ? '' : 'line-clamp-3'}`}>
         {text}
       </p>
       <button 
@@ -28,7 +28,7 @@ const Description = ({ text }) => {
             e.stopPropagation();
             setIsExpanded(!isExpanded);
         }}
-        className="text-indigo-600 hover:text-indigo-800 text-sm font-medium mt-1 focus:outline-none"
+        className="text-indigo-600 hover:text-indigo-800 text-xs font-medium mt-1 focus:outline-none"
       >
         {isExpanded ? 'Show less' : 'Read more'}
       </button>
@@ -37,23 +37,32 @@ const Description = ({ text }) => {
 };
 
 /**
- * Helper to format the time range.
+ * Helper to format the full date and time range string.
  * @param {string} start - ISO start time string.
  * @param {string} end - ISO end time string.
- * @returns {string} Formatted time range string.
+ * @returns {string} Formatted string like "Thu, Oct 12 • 6:00 PM - 9:00 PM"
  */
-const formatTimeRange = (start, end) => {
-  // Ensure the dates are valid before formatting
+const formatDateTimeRange = (start, end) => {
   const startDate = new Date(start);
   const endDate = new Date(end);
   
-  if (isNaN(startDate) || isNaN(endDate)) {
-    return 'Time TBD';
+  if (isNaN(startDate)) {
+    return 'Date TBD';
   }
 
+  // Format date: "Thu, Oct 12"
+  const dateStr = format(startDate, 'EEE, MMM d');
+  
+  // Format times
   const startTime = format(startDate, 'h:mm a');
-  const endTime = format(endDate, 'h:mm a');
-  return `${startTime} - ${endTime}`;
+  let timeStr = startTime;
+
+  if (!isNaN(endDate)) {
+      const endTime = format(endDate, 'h:mm a');
+      timeStr = `${startTime} - ${endTime}`;
+  }
+
+  return `${dateStr} • ${timeStr}`;
 };
 
 /**
@@ -256,11 +265,8 @@ const SingleEventCardContent = ({ item, onBookmark }) => {
     const guest_count = item.guest_count || event.guest_count || 0;
     const isBookmarked = item.bookmarked || false;
 
-    const startDate = new Date(event.start_at);
-    const eventDate = format(startDate, 'EEEE, MMM d, yyyy');
-    const eventTime = event.start_at && event.end_at 
-    ? formatTimeRange(event.start_at, event.end_at) 
-    : 'Time TBD';
+    // Combined Date & Time Display
+    const dateTimeDisplay = formatDateTimeRange(event.start_at, event.end_at);
     
     const location = getLocation(event);
     const priceLabel = getPriceLabel(ticket_info);
@@ -286,7 +292,7 @@ const SingleEventCardContent = ({ item, onBookmark }) => {
     // But let's act as if 0 is possible perfect match.
     // Let's assume a "Good" match is < 0.10 and a "Bad" match is > 0.30
     
-    let matchScore = null;
+    let matchScore = 0;
     if (hasDistance) {
         // Clamp distance to reasonable bounds based on data
         // Min 0.05, Max 0.35
@@ -294,82 +300,76 @@ const SingleEventCardContent = ({ item, onBookmark }) => {
         const maxVal = 0.35;
         
         // Calculate percentage: Lower distance = Higher score
+        // Only calculate if distance exists
         let score = (1 - (Math.max(minVal, Math.min(distance, maxVal)) - minVal) / (maxVal - minVal)) * 100;
         matchScore = Math.round(score);
     }
+    
+    // Ensure score is valid number
+    const displayScore = hasDistance ? Math.max(0, matchScore) : null;
 
     return (
-        <>
-            <button 
-            onClick={(e) => {
-                e.preventDefault();
-                onBookmark(item.id, !isBookmarked);
-            }}
-            className="absolute top-10 right-2 p-2 rounded-full bg-white/80 hover:bg-white shadow-sm z-10 transition-colors"
-            title={isBookmarked ? "Remove bookmark" : "Bookmark event"}
-            >
-            <Bookmark className={`w-5 h-5 ${isBookmarked ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`} />
-            </button>
-
-            <div className="p-5 flex-1 flex flex-col">
-            {/* Event Header */}
-            <div className="flex justify-between items-start mb-2">
-                <h3 className="text-xl font-semibold text-gray-900 line-clamp-2 h-14 flex-1 pr-8">{event.name || 'Untitled Event'}</h3>
+        <div className="relative h-full flex flex-col p-5">
+            {/* Top Right Actions: Match Score + Bookmark + Price */}
+            <div className="absolute top-4 right-4 z-10 flex flex-col items-end gap-1">
+                <div className="flex items-center gap-2">
+                    {displayScore !== null && (
+                        <div className={`text-xs font-bold text-white px-2 py-1 rounded-md shadow-sm ${
+                            // Same logic as before
+                            matchScore >= 80 ? 'bg-gradient-to-r from-emerald-500 to-green-500' :
+                            matchScore >= 60 ? 'bg-gradient-to-r from-blue-500 to-cyan-500' :
+                            matchScore >= 40 ? 'bg-gradient-to-r from-indigo-500 to-purple-500' :
+                            'bg-gradient-to-r from-gray-500 to-gray-600'
+                        }`}>
+                            {matchScore}%
+                        </div>
+                    )}
+                    
+                    <button 
+                    onClick={(e) => {
+                        e.preventDefault();
+                        onBookmark(item.id, !isBookmarked);
+                    }}
+                    className="p-1.5 rounded-full bg-white/80 hover:bg-white shadow-sm border border-gray-100 transition-colors"
+                    title={isBookmarked ? "Remove bookmark" : "Bookmark event"}
+                    >
+                    <Bookmark className={`w-4 h-4 ${isBookmarked ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`} />
+                    </button>
+                </div>
+                
+                {/* Price Label (No Icon) */}
+                <div className={`text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200 ${priceLabel === 'Free' ? 'text-green-700' : 'text-purple-700'}`}>
+                    {priceLabel}
+                </div>
             </div>
 
-            {hasDistance && (
-                <div className="flex items-center space-x-1 mb-3">
-                    <div className={`text-xs font-bold text-white px-2 py-1 rounded-md shadow-sm ${
-                        matchScore >= 80 ? 'bg-gradient-to-r from-emerald-500 to-green-500' :
-                        matchScore >= 60 ? 'bg-gradient-to-r from-blue-500 to-cyan-500' :
-                        matchScore >= 40 ? 'bg-gradient-to-r from-indigo-500 to-purple-500' :
-                        'bg-gradient-to-r from-gray-500 to-gray-600'
-                    }`}>
-                        {Math.max(0, matchScore)}% Match
-                    </div>
-                </div>
-            )}
+            {/* Event Header - Title */}
+            <div className="mb-3 pr-20">
+                <h3 className="text-lg font-semibold text-gray-900 line-clamp-2 leading-tight">
+                    {event.name || 'Untitled Event'}
+                </h3>
+            </div>
 
             {/* Event Details Grid */}
             <div className="grid grid-cols-1 gap-y-2 text-sm text-gray-600 mb-4">
                 
-                {/* Date */}
+                {/* Date & Time Combined */}
                 <div className="flex items-center space-x-2">
-                <Calendar className="w-4 h-4 text-indigo-500 flex-shrink-0" />
-                <span>{eventDate}</span>
-                </div>
-
-                {/* Time */}
-                <div className="flex items-center space-x-2">
-                <Clock className="w-4 h-4 text-indigo-500 flex-shrink-0" />
-                <span>{eventTime}</span>
+                    <Calendar className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+                    <span className="font-medium text-gray-900">{dateTimeDisplay}</span>
                 </div>
 
                 {/* Location */}
                 <div className="flex items-start space-x-2">
-                <MapPin className="w-4 h-4 text-red-500 flex-shrink-0 mt-1" />
-                <div className="flex flex-col overflow-hidden">
-                    <span className="truncate">{location}</span>
-                    {item.distance_info && (
-                    <span className="text-xs text-gray-500">
-                        {item.distance_info.distance_text} • {item.distance_info.duration_text} drive
-                    </span>
-                    )}
-                </div>
-                </div>
-
-                {/* Guests */}
-                <div className="flex items-center space-x-2">
-                <Users className="w-4 h-4 text-green-500 flex-shrink-0" />
-                <span>{guest_count} Guest{guest_count !== 1 ? 's' : ''}</span>
-                </div>
-
-                {/* Pricing (Ticket Info) */}
-                <div className="flex items-center space-x-2">
-                <Ticket className="w-4 h-4 text-purple-500 flex-shrink-0" />
-                <span className={`font-medium ${priceLabel === 'Free' ? 'text-green-600' : 'text-purple-600'}`}>
-                    {priceLabel}
-                </span>
+                    <MapPin className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                    <div className="flex flex-col overflow-hidden">
+                        <span className="truncate">{location}</span>
+                        {item.distance_info && (
+                        <span className="text-xs text-gray-500">
+                            {item.distance_info.distance_text} • {item.distance_info.duration_text} drive
+                        </span>
+                        )}
+                    </div>
                 </div>
 
             </div>
@@ -377,12 +377,12 @@ const SingleEventCardContent = ({ item, onBookmark }) => {
             {/* Tags */}
             <div className="flex flex-wrap gap-2 mb-4">
                 {/* Event Type */}
-                <div className="flex items-center space-x-1 text-xs font-medium text-indigo-700 bg-indigo-100 rounded-full py-1 px-3">
+                <div className="flex items-center space-x-1 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-full py-0.5 px-2.5">
                     <Tag className="w-3 h-3" />
                     <span className="uppercase">{eventType}</span>
                 </div>
                 {/* Audience */}
-                <div className="flex items-center space-x-1 text-xs font-medium text-emerald-700 bg-emerald-100 rounded-full py-1 px-3">
+                <div className="flex items-center space-x-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-full py-0.5 px-2.5">
                     <Users className="w-3 h-3" />
                     <span className="uppercase">{audience}</span>
                 </div>
@@ -405,7 +405,6 @@ const SingleEventCardContent = ({ item, onBookmark }) => {
                 {isLumaEvent ? 'View on Luma' : 'View External Event'}
             </a>
             </div>
-        </>
     );
 }
 

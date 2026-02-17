@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Calendar } from 'lucide-react';
 
 export default function DayPicker({ selectedDays, onDaysChange }) {
