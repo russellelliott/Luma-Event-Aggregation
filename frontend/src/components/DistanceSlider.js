@@ -30,7 +30,11 @@ export default function DistanceSlider({ cities, selectedCityIndex, onCityChange
           </div>
           
           {!isAllSelected ? (
-             <div className="flex items-center gap-3 text-sm text-gray-600">
+             <div className="flex items-center gap-2 text-sm text-gray-600">
+                <span className="font-bold text-gray-900 mr-1">
+                  {selectedCity.city.split(',')[0]}
+                </span>
+                <span className="text-gray-300">|</span>
                 <span className="font-medium">
                   {typeof selectedCity.distance_miles === 'number' && !isNaN(selectedCity.distance_miles)
                     ? selectedCity.distance_miles.toFixed(1)
@@ -47,7 +51,7 @@ export default function DistanceSlider({ cities, selectedCityIndex, onCityChange
                 )}
              </div>
           ) : (
-            <span className="text-sm text-gray-500">Everywhere</span>
+            <span className="text-sm text-gray-500">All Events</span>
           )}
         </div>
       </div>
@@ -75,11 +79,6 @@ export default function DistanceSlider({ cities, selectedCityIndex, onCityChange
               }}
             >
               <div className={`w-0.5 h-2 mb-2 ${index === selectedCityIndex ? 'bg-blue-600' : 'bg-gray-300'}`} />
-              {index === selectedCityIndex && (
-                <div className="absolute top-6 transform -translate-x-1/2 whitespace-nowrap bg-white px-3 py-1.5 rounded-lg shadow-md border border-gray-100 z-10">
-                  <span className="font-medium text-gray-900 text-sm">{city.city.split(',')[0]}</span>
-                </div>
-              )}
             </div>
           ))}
           
@@ -92,11 +91,6 @@ export default function DistanceSlider({ cities, selectedCityIndex, onCityChange
             }}
           >
             <div className={`w-0.5 h-2 mb-2 ${isAllSelected ? 'bg-blue-600' : 'bg-gray-300'}`} />
-            {isAllSelected && (
-              <div className="absolute top-6 transform -translate-x-1/2 whitespace-nowrap bg-white px-3 py-1.5 rounded-lg shadow-md border border-gray-100 z-10">
-                <span className="font-medium text-gray-900 text-sm">All Events</span>
-              </div>
-            )}
           </div>
         </div>
       </div>
