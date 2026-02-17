@@ -220,23 +220,24 @@ function App() {
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
               {/* Sidebar - Filters */}
-              <div className="lg:col-span-4 space-y-6">
+              <div className="lg:col-span-8">
+                 <MultiDayCalendar 
+                  selectedDates={selectedDates}
+                  onDatesChange={setSelectedDates}
+                  events={filteredEvents}
+                />
+              </div>
+              
+              {/* Event Classifications */}
+              <div className="lg:col-span-4 space-y-4">
                 <ClassificationFilter 
                   selectedFilters={selectedFilters}
                   onFilterChange={handleFilterChange}
                 />
+                
                 <DayPicker 
                   selectedDays={selectedDays}
                   onDaysChange={setSelectedDays}
-                />
-              </div>
-              
-              {/* Main Content - Calendar */}
-              <div className="lg:col-span-8">
-                <MultiDayCalendar 
-                  selectedDates={selectedDates}
-                  onDatesChange={setSelectedDates}
-                  events={filteredEvents}
                 />
               </div>
             </div>

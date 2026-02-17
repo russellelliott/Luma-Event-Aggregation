@@ -31,19 +31,35 @@ export default function DayPicker({ selectedDays, onDaysChange }) {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-      <div className="flex items-center gap-2 mb-4">
-        <Calendar className="w-5 h-5 text-indigo-600" />
-        <h3 className="text-lg font-semibold text-gray-800">Select Days</h3>
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-3">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-indigo-600" />
+          <h3 className="text-sm font-semibold text-gray-800">Days</h3>
+        </div>
+        <div className="flex gap-1">
+          <button
+            onClick={selectAll}
+            className="text-[10px] font-medium text-indigo-600 hover:bg-indigo-50 px-1.5 py-0.5 rounded transition-colors"
+          >
+            All
+          </button>
+          <button
+            onClick={clearAll}
+            className="text-[10px] font-medium text-gray-500 hover:bg-gray-50 px-1.5 py-0.5 rounded transition-colors"
+          >
+            Clear
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-1 mb-4">
+      <div className="grid grid-cols-7 gap-1">
         {days.map(day => (
           <button
             key={day.id}
             onClick={() => toggleDay(day.id)}
             className={`
-              aspect-square rounded-lg font-semibold text-xs transition-all duration-200 flex items-center justify-center
+              h-8 w-full rounded-md font-semibold text-xs transition-all duration-150 flex items-center justify-center
               ${selectedDays.has(day.id)
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
@@ -51,24 +67,9 @@ export default function DayPicker({ selectedDays, onDaysChange }) {
             `}
             title={day.full}
           >
-            {day.label}
+            {day.label.charAt(0)}
           </button>
         ))}
-      </div>
-
-      <div className="flex gap-2">
-        <button
-          onClick={selectAll}
-          className="flex-1 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-medium hover:bg-indigo-100 transition-colors"
-        >
-          All
-        </button>
-        <button
-          onClick={clearAll}
-          className="flex-1 px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
-        >
-          Clear
-        </button>
       </div>
     </div>
   );
