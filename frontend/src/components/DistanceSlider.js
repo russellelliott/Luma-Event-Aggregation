@@ -21,17 +21,20 @@ export default function DistanceSlider({ cities, selectedCityIndex, onCityChange
   const baseCity = cities[0].city.split(',')[0];
 
   return (
-    <div className="w-full p-6 bg-white rounded-xl shadow-sm border border-gray-100">
-      <div className="flex justify-between items-start mb-8">
-        <h3 className="text-lg font-semibold text-gray-800 mt-1">Distance from {baseCity}</h3>
-        <div className="text-right flex flex-col items-end gap-1">
-          <div className="text-2xl font-bold text-blue-600">
-            {eventsCount} <span className="text-base font-normal text-gray-500">events</span>
-          </div>
-          
-          {!isAllSelected ? (
+    <div className="w-full px-6 py-4 bg-white rounded-xl shadow-sm border border-gray-100">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-base font-semibold text-gray-800">Distance from {baseCity}</h3>
+        
+        <div className="flex items-center gap-3">
+            <span className="text-lg font-bold text-blue-600">
+                {eventsCount} <span className="text-sm font-normal text-gray-500">events</span>
+            </span>
+            
+            <div className="h-4 w-px bg-gray-300 mx-1"></div>
+
+            {!isAllSelected ? (
              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <span className="font-bold text-gray-900 mr-1">
+                <span className="font-bold text-gray-900">
                   {selectedCity.city.split(',')[0]}
                 </span>
                 <span className="text-gray-300">|</span>
@@ -51,12 +54,12 @@ export default function DistanceSlider({ cities, selectedCityIndex, onCityChange
                 )}
              </div>
           ) : (
-            <span className="text-sm text-gray-500">All Events</span>
+            <span className="text-sm font-medium text-gray-500">All Events</span>
           )}
         </div>
       </div>
 
-      <div className="relative mb-12">
+      <div className="relative mb-6">
         <input
           type="range"
           min="0"
@@ -67,7 +70,7 @@ export default function DistanceSlider({ cities, selectedCityIndex, onCityChange
           className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
         />
         
-        <div className="absolute w-full flex justify-between px-1 mt-4">
+        <div className="absolute w-full flex justify-between px-1 mt-2">
           {/* Render ticks for cities */}
           {cities.map((city, index) => (
             <div 
