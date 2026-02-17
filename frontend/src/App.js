@@ -18,7 +18,8 @@ function App() {
   });
   const [selectedDates, setSelectedDates] = useState([]);
   const [selectedDays, setSelectedDays] = useState(new Set());
-  const [fetchedEvents, setFetchedEvents] = useState([]);
+  const [allEvents, setAllEvents] = useState([]);
+  const [filteredEvents, setFilteredEvents] = useState([]);
   const [view, setView] = useState('home');
 
   useEffect(() => {
@@ -30,17 +31,10 @@ function App() {
       .catch(err => console.error('Error fetching cities:', err));
   }, []);
 
+  // Fetch all events once or when non-distance filters change
   useEffect(() => {
-    if (cities.length === 0) return;
-
     const params = new URLSearchParams();
     
-    // Add locations
-    if (selectedCityIndex < cities.length) {
-      const includedCities = cities.slice(0, selectedCityIndex + 1).map(c => c.city.split(',')[0]);
-      includedCities.forEach(city => params.append('location', city));
-    }
-
     // Add event types
     selectedFilters.eventTypes.forEach(type => params.append('event-type', type));
 
@@ -52,29 +46,60 @@ function App() {
       params.append('bookmarked', 'true');
     }
 
-    // Note: Dates and weekdays filtering is now done client-side to allow
-    // the calendar to show event counts for all days.
-
-    fetch(`http://localhost:8001/events?${params.toString()}`)
+    fetch(`http://localhost:8001/events/all?${params.toString()}`)
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
-          setFetchedEvents(data);
+          setAllEvents(data);
         } else {
           console.error("Received non-array data:", data);
-          setFetchedEvents([]);
+          setAllEvents([]);
         }
       })
       .catch(err => console.error('Error fetching events:', err));
 
-  }, [cities, selectedCityIndex, selectedFilters]);
+  }, [selectedFilters]);
+
+  // Filter events by distance client-side
+  useEffect(() => {
+    if (cities.length === 0 || allEvents.length === 0) {
+      setFilteredEvents([]);
+      return;
+    }
+
+    // Get max distance from current slider position
+    // If selectedCityIndex exceeds bounds, use the last one or failsafe
+    const cityIndex = Math.min(selectedCityIndex, cities.length - 1);
+    const maxDistance = cities[cityIndex]?.distance_miles;
+    
+    if (maxDistance === undefined) {
+      setFilteredEvents(allEvents);
+      return;
+    }
+
+    const filtered = allEvents.filter(event => {
+      const distanceInfo = event.distance_info;
+      // Include events without distance info? Usually better to exclude if enforcing a radius
+      // But user logic says "return distanceInfo.distance_miles <= maxDistance"
+      
+      if (!distanceInfo || typeof distanceInfo.distance_miles !== 'number') {
+        // If no distance info, it's either far away or unknown. 
+        // For safety, maybe include if maxDistance is very large? 
+        // But logic says strict inequality.
+        return false; 
+      }
+      return distanceInfo.distance_miles <= maxDistance;
+    });
+    
+    setFilteredEvents(filtered);
+  }, [allEvents, selectedCityIndex, cities]);
 
   // Filter events client-side based on Date/Weekday selection
   const visibleEvents = React.useMemo(() => {
       if (selectedDates.length === 0 && selectedDays.size === 0) {
-          return fetchedEvents;
+          return filteredEvents;
       }
-      return fetchedEvents.filter(item => {
+      return filteredEvents.filter(item => {
           const event = item.event || item;
           if (!event.start_at) return false;
           
@@ -96,7 +121,7 @@ function App() {
           
           return false;
       });
-  }, [fetchedEvents, selectedDates, selectedDays]);
+  }, [filteredEvents, selectedDates, selectedDays]);
 
   const handleFilterChange = (category, values) => {
     setSelectedFilters(prev => ({
@@ -107,7 +132,7 @@ function App() {
 
   const handleBookmark = (id, isBookmarked) => {
     // Optimistic update for home list
-    setFetchedEvents(prevEvents => {
+    setAllEvents(prevEvents => {
       const updated = prevEvents.map(event => 
         event.id === id ? { ...event, bookmarked: isBookmarked } : event
       );
@@ -126,7 +151,7 @@ function App() {
       if (data.error) {
         console.error('Error bookmarking event:', data.error);
         // Revert on error
-        setFetchedEvents(prevEvents => prevEvents.map(event => 
+        setAllEvents(prevEvents => prevEvents.map(event => 
           event.id === id ? { ...event, bookmarked: !isBookmarked } : event
         ));
       }
@@ -134,7 +159,7 @@ function App() {
     .catch(err => {
       console.error('Error bookmarking event:', err);
       // Revert on error
-      setFetchedEvents(prevEvents => prevEvents.map(event => 
+      setAllEvents(prevEvents => prevEvents.map(event => 
         event.id === id ? { ...event, bookmarked: !isBookmarked } : event
       ));
     });
@@ -198,7 +223,7 @@ function App() {
                 <MultiDayCalendar 
                   selectedDates={selectedDates}
                   onDatesChange={setSelectedDates}
-                  events={fetchedEvents}
+                  events={filteredEvents}
                 />
               </div>
             </div>
@@ -214,7 +239,7 @@ function App() {
             onEventAdded={(newEvent) => {
               // If we are currently showing a list that should include this event, append it
               // But simplest is to just switch view and let fetch happen or just append
-              setFetchedEvents(prev => [...prev, newEvent]);
+              setAllEvents(prev => [...prev, newEvent]);
               setView('home');
             }}
             onCancel={() => setView('home')}

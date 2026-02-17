@@ -131,6 +131,61 @@ def enrich_events_with_distance(events):
         
     return enriched_events
 
+@app.get("/events/all")
+def get_all_events(
+    event_type: Optional[List[str]] = Query(None, alias="event-type"),
+    audience: Optional[List[str]] = Query(None),
+    bookmarked: bool = Query(False),
+    include_past: bool = Query(False)
+):
+    """Fetch all events with distance enrichment, no location filtering"""
+    try:
+        filtered_events = apply_filters(
+            ALL_EVENTS,
+            location=None,  # Don't filter by location
+            dates=None,
+            weekdays=None,
+            event_types=event_type,
+            audiences=audience,
+            bookmarked=bookmarked,
+            include_past=include_past
+        )
+        
+        # Normalize URLs in the response
+        response_events = []
+        for e in filtered_events:
+            event_copy = e.copy()
+            
+            # Handle nested event structure
+            event_data = event_copy.get('event', event_copy) if isinstance(event_copy, dict) else event_copy
+            
+            # Normalize URL
+            url = event_data.get('url')
+            if url and not url.startswith('http'):
+                full_url = f"https://lu.ma/{url}"
+                if isinstance(event_copy.get('event'), dict):
+                    event_copy['event']['url'] = full_url
+                else:
+                    event_copy['url'] = full_url
+            
+            response_events.append(event_copy)
+        
+        # Enrich with distance info
+        response_events = enrich_events_with_distance(response_events)
+
+        # Sort by start_at
+        def get_start_time(e):
+            start_at = e.get('start_at')
+            if not start_at and isinstance(e.get('event'), dict):
+                start_at = e['event'].get('start_at')
+            return start_at or ""
+        
+        response_events.sort(key=get_start_time)
+
+        return clean_nans(convert_to_serializable(response_events))
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.get("/cities")
 def get_cities():
     try:
