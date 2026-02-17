@@ -79,11 +79,9 @@ function App() {
     const citiesUpToSlider = cities.slice(0, cityIndex + 1);
     const maxDistance = Math.max(...citiesUpToSlider.map(c => c.distance_miles || 0));
     
-    if (maxDistance === 0) {
-        // Fallback if data is missing
-        setFilteredEvents(allEvents);
-        return;
-    }
+    // We used to have a fallback here for maxDistance === 0 to show all events,
+    // but that breaks the case where the user wants only events at the starting location (distance 0).
+    // Now we just proceed to filter.
 
     const filtered = allEvents.filter(event => {
       const distanceInfo = event.distance_info;
