@@ -1,19 +1,19 @@
 import React, { useState } from 'react';
-import { Calendar, X } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import Badge from '@mui/material/Badge';
 import { styled } from '@mui/material/styles';
 
 const StyledBadge = styled(Badge)(({ theme }) => ({
   '& .MuiBadge-badge': {
-    right: -3,
-    top: 3,
-    border: `2px solid #fff`,
-    padding: '0 4px',
-    backgroundColor: '#3b82f6', // Tailwind blue-500
+    right: -2,
+    top: 2,
+    border: `1px solid #fff`, // Thinner border
+    padding: '0 2px',
+    backgroundColor: '#3b82f6',
     color: 'white',
-    fontSize: '0.6rem',
-    height: '16px',
-    minWidth: '16px',
+    fontSize: '0.55rem', // Smaller font
+    height: '14px',       // Smaller height
+    minWidth: '14px',     // Smaller width
     zIndex: 10,
   },
 }));
@@ -97,29 +97,31 @@ export default function MultiDayCalendar({ selectedDates, onDatesChange, events 
     const daysInMonth = getDaysInMonth(currentDate);
     const firstDay = getFirstDayOfMonth(currentDate);
     const days = [];
-    const currentYear = currentDate.getFullYear();
-    const currentMonth = currentDate.getMonth();
+    
+    // Day headers
+    const dayHeaders = dayNames.map(day => (
+      <div key={day} className="h-6 flex items-center justify-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
+        {day}
+      </div>
+    ));
 
+    // Empty cells
     for (let i = 0; i < firstDay; i++) {
-      days.push(<div key={`empty-${i}`} className="h-12"></div>);
+      days.push(<div key={`empty-${i}`} className="h-8"></div>);
     }
 
+    // Date cells
     for (let day = 1; day <= daysInMonth; day++) {
-      const dayDate = new Date(currentYear, currentMonth, day);
-      const selected = selectedDates.some(d => 
-        d.getFullYear() === dayDate.getFullYear() &&
-        d.getMonth() === dayDate.getMonth() &&
-        d.getDate() === dayDate.getDate()
-      );
-
+      const dayDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+      const isSelectedDay = isSelected(day);
       const eventCount = getEventCount(dayDate);
       
       days.push(
         <button
-          key={`${currentYear}-${currentMonth}-${day}`}
+          key={day}
           onClick={() => toggleDate(day)}
-          className={`h-12 rounded-lg font-medium transition-all hover:bg-blue-50 
-            ${selected ? 'bg-blue-500 text-white hover:bg-blue-600' : 'text-gray-700'}`}
+          className={`h-8 w-full flex items-center justify-center rounded-md text-sm font-medium transition-all hover:bg-blue-50 
+            ${isSelectedDay ? 'bg-blue-500 text-white hover:bg-blue-600' : 'text-gray-700'}`}
         >
           <StyledBadge badgeContent={eventCount} invisible={eventCount === 0}>
             {day}
@@ -128,63 +130,61 @@ export default function MultiDayCalendar({ selectedDates, onDatesChange, events 
       );
     }
 
-    return days;
+    return (
+      <div className="grid grid-cols-7 gap-1">
+        {dayHeaders}
+        {days}
+      </div>
+    );
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <Calendar className="w-6 h-6 text-blue-500" />
-            <h2 className="text-xl font-bold text-gray-800">
+    <div className="flex flex-col gap-4">
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-blue-500" />
+            <h2 className="text-lg font-bold text-gray-800">
               {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
             </h2>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-1">
             <button
               onClick={() => setCurrentDate(new Date())}
-              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
+              className="px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-md transition-colors border border-gray-200 mr-2"
             >
               Today
             </button>
             <button
               onClick={previousMonth}
-              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
+              className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-md transition-colors border border-gray-200"
+              aria-label="Previous month"
             >
-              ← Prev
+              <ChevronLeft className="w-4 h-4" />
             </button>
             <button
               onClick={nextMonth}
-              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
+              className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-md transition-colors border border-gray-200"
+              aria-label="Next month"
             >
-              Next →
+              <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-7 gap-2 mb-2">
-          {dayNames.map(day => (
-            <div key={day} className="h-10 flex items-center justify-center text-sm font-semibold text-gray-500 uppercase tracking-wider">
-              {day}
-            </div>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-7 gap-2">
-          {renderCalendar()}
-        </div>
+        {renderCalendar()}
       </div>
 
+
       {selectedDates.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-800">
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-800">
               Selected Dates ({selectedDates.length})
             </h3>
             <button
               onClick={clearAll}
-              className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              className="px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded-md transition-colors"
             >
               Clear All
             </button>
@@ -196,7 +196,7 @@ export default function MultiDayCalendar({ selectedDates, onDatesChange, events 
               .map((date, index) => (
                 <div
                   key={index}
-                  className="flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-sm border border-blue-100"
+                  className="flex items-center gap-1.5 bg-blue-50 text-blue-700 px-2 py-1 rounded-md text-xs border border-blue-100"
                 >
                   <span>{formatDate(date)}</span>
                   <button
