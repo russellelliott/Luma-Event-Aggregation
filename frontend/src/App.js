@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Home, Plus, X, Loader } from 'lucide-react';
+import { Home, Plus, X, Loader, LayoutList, Layers } from 'lucide-react';
 import DistanceSlider from './components/DistanceSlider';
 import ClassificationFilter from './components/ClassificationFilter';
 import MultiDayCalendar from './components/MultiDayCalendar';
@@ -9,20 +9,6 @@ import AddEvent from './components/AddEvent';
 import SearchBar from './components/SearchBar';
 import MatchSlider from './components/MatchSlider';
 import './App.css';
-
-// Reuse the match score calculation logic from EventCard to ensure consistency
-const calculateMatchScore = (distance) => {
-  if (distance === undefined || distance === null) return 0;
-  
-  // Clamp distance to reasonable bounds based on data
-  // Min 0.05, Max 0.35
-  const minVal = 0.05;
-  const maxVal = 0.35;
-  
-  // Calculate percentage: Lower distance = Higher score
-  let score = (1 - (Math.max(minVal, Math.min(distance, maxVal)) - minVal) / (maxVal - minVal)) * 100;
-  return Math.round(score);
-};
 
 // Simple Modal Component
 const Modal = ({ isOpen, onClose, title, children }) => {
@@ -60,14 +46,26 @@ function App() {
   const [view, setView] = useState('home');
   const [isLoading, setIsLoading] = useState(false);
   
+  // View Mode: 'stacked' (grouped by day) or 'list' (flat list sorted by relevance)
+  const [viewMode, setViewMode] = useState('stacked');
+
   // Search and Match Slider State
   const [searchQuery, setSearchQuery] = useState('');
-  const [minMatch, setMinMatch] = useState(0);
-  const [matchRange, setMatchRange] = useState({ min: 0, max: 100 });
+  const [maxDistanceFilter, setMaxDistanceFilter] = useState(0.8);
+  const [distanceRange, setDistanceRange] = useState({ min: 0.0, max: 0.8 });
   
   // Bookmark Modal State
   const [bookmarkModalOpen, setBookmarkModalOpen] = useState(false);
   const [pendingBookmarkEventId, setPendingBookmarkEventId] = useState(null);
+
+  // Effect to switch view mode based on search status
+  useEffect(() => {
+    if (searchQuery) {
+      setViewMode('list');
+    } else {
+      setViewMode('stacked');
+    }
+  }, [searchQuery]);
 
   useEffect(() => {
     fetch('http://localhost:8001/cities')
@@ -105,20 +103,22 @@ function App() {
         if (Array.isArray(data)) {
           setAllEvents(data);
           
-          // Calculate match range on load/search
-          const scores = data.map(e => calculateMatchScore(e.cosine_distance)).filter(s => s !== null);
-          if (scores.length > 0) {
-            const min = Math.min(...scores);
-            const max = Math.max(...scores);
-            setMatchRange({ min, max });
+          // Calculate distance range on load/search
+          const distances = data.map(e => e.cosine_distance).filter(d => d !== undefined && d !== null);
+          
+          if (distances.length > 0) {
+            const min = Math.min(...distances);
+            const max = Math.max(...distances);
+            const minRounded = Math.floor(min * 100) / 100;
+            const maxRounded = Math.ceil((max + 0.05) * 100) / 100;
             
-            // Ensure minMatch is at least the minimum available score
-            if (minMatch < min || searchQuery) {
-                setMinMatch(min);
-            }
+            setDistanceRange({ min: minRounded, max: maxRounded });
+            
+            // Set slider to max available distance initially so all events match
+            setMaxDistanceFilter(maxRounded);
           } else {
-             setMatchRange({ min: 0, max: 100 });
-             if (searchQuery) setMinMatch(0);
+             setDistanceRange({ min: 0.0, max: 2.0 });
+             setMaxDistanceFilter(2.0);
           }
         } else {
           console.error("Received non-array data:", data);
@@ -162,15 +162,18 @@ function App() {
         if (price > 0 || maxPrice > 0) return false;
       }
       
-      // 3. Match Percentage Filter
-      const score = calculateMatchScore(event.cosine_distance);
-      if (score < minMatch) return false;
+      // 3. Match Distance Filter (Cosine Distance)
+      const distance = event.cosine_distance;
+      // Filter out events that exceed max distance if set < 1.0 (or default max)
+      if (distance !== undefined && distance !== null) {
+          if (distance > maxDistanceFilter) return false;
+      }
 
       return true;
     });
     
     setFilteredEvents(filtered);
-  }, [allEvents, selectedCityIndex, cities, selectedFilters.showPaid, minMatch]);
+  }, [allEvents, selectedCityIndex, cities, selectedFilters.showPaid, maxDistanceFilter]);
 
   // Filter events client-side based on Date/Weekday selection
   const visibleEvents = React.useMemo(() => {
@@ -297,6 +300,32 @@ function App() {
           <>
             <div className="mb-6 flex flex-col md:flex-row gap-4 justify-center items-center">
                 <SearchBar onSearch={setSearchQuery} />
+                
+                {/* View Toggle */}
+                <div className="flex bg-white rounded-lg shadow-sm border border-gray-200 p-1">
+                    <button
+                        onClick={() => setViewMode('stacked')}
+                        className={`p-2 rounded-md transition-colors ${
+                            viewMode === 'stacked' 
+                                ? 'bg-indigo-100 text-indigo-700' 
+                                : 'text-gray-500 hover:bg-gray-50'
+                        }`}
+                        title="Group by Date"
+                    >
+                        <Layers className="w-5 h-5" />
+                    </button>
+                    <button
+                        onClick={() => setViewMode('list')}
+                        className={`p-2 rounded-md transition-colors ${
+                            viewMode === 'list' 
+                                ? 'bg-indigo-100 text-indigo-700' 
+                                : 'text-gray-500 hover:bg-gray-50'
+                        }`}
+                        title="List by Relevance"
+                    >
+                        <LayoutList className="w-5 h-5" />
+                    </button>
+                </div>
             </div>
 
             <DistanceSlider 
@@ -324,9 +353,9 @@ function App() {
                 />
                 
                 <MatchSlider 
-                    minMatch={minMatch} 
-                    setMinMatch={setMinMatch} 
-                    range={matchRange} // Pass dynamic range
+                    maxDistance={maxDistanceFilter} 
+                    setMaxDistance={setMaxDistanceFilter} 
+                    range={distanceRange}
                 />
                 
                 <DayPicker 
@@ -347,6 +376,7 @@ function App() {
                     onBookmark={handleBookmark} 
                     onViewEvent={handleViewEvent}
                     isSearching={!!searchQuery} // Pass search state
+                    viewMode={viewMode}
                   />
               )}
             </div>

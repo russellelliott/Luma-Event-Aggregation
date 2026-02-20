@@ -123,7 +123,7 @@ const getPriceLabel = (ticketInfo) => {
  * @param {Function} props.onBookmark - Callback for bookmarking.
  * @returns {JSX.Element}
  */
-const EventCard = ({ events, onBookmark, onViewEvent, isSearching }) => {
+const EventCard = ({ events, onBookmark, onViewEvent, isSearching, viewMode }) => {
   // Sort and group events
   const groupEventsByDate = (eventList) => {
     // First, filter out invalid events
@@ -132,12 +132,25 @@ const EventCard = ({ events, onBookmark, onViewEvent, isSearching }) => {
         return date;
     });
 
-    // If searching, return flat list (already sorted by relevance from backend)
-    if (isSearching) {
-        return validEvents;
+    // If viewMode is 'list', OR (legacy/fallback) if searching and no viewMode override provided, return flat list
+    // Ideally viewMode should be explicit: 'grid' (stacked) or 'list' (flat)
+    const shouldUseFlatList = viewMode === 'list';
+
+    if (shouldUseFlatList) {
+        // If it's a flat list, we should ensure it's sorted by relevance (cosine_distance)
+        // The backend already sorts by relevance if searching.
+        // If not searching, backend sorts by date.
+        // Ideally, if "List view", we might want to sort by distance?
+        // But let's trust the backend sort order for now, or re-sort if needed.
+        return validEvents.sort((a, b) => {
+             // Handle nullable distance (treat None/null as infinity so they go last)
+             const distA = (a.cosine_distance !== undefined && a.cosine_distance !== null) ? a.cosine_distance : Infinity;
+             const distB = (b.cosine_distance !== undefined && b.cosine_distance !== null) ? b.cosine_distance : Infinity;
+             return distA - distB;
+        });
     }
 
-    // Grouping
+    // Grouping for Stacked View
     const groups = {};
     validEvents.forEach(item => {
         const rawDate = item.start_at || (item.event && item.event.start_at);
@@ -284,42 +297,30 @@ const SingleEventCardContent = ({ item, onBookmark, onViewEvent, isSearching }) 
     const isLumaEvent = eventUrl.includes('lu.ma') || eventUrl.includes('luma.com');
 
     // Similarity Score / Distance
-    const distance = item.cosine_distance;
-    const hasDistance = distance !== undefined && distance !== null;
+    const rawDistance = item.cosine_distance;
+    const hasDistance = rawDistance !== undefined && rawDistance !== null;
     
-    // Calculate Match Score based on observed statistics
-    // Bookmarks: Min ~0.06, Mean ~0.13, Max ~0.32
-    // Search: Typically larger distances (0.3 - 0.7)
-    
-    let matchScore = 0;
-    if (hasDistance) {
-        // Different scaling for search vs bookmarks
-        const minVal = isSearching ? 0.2 : 0.05;
-        const maxVal = isSearching ? 0.6 : 0.35;
-        
-        // Calculate percentage: Lower distance = Higher score
-        // Clamp distance to bounds
-        let score = (1 - (Math.max(minVal, Math.min(distance, maxVal)) - minVal) / (maxVal - minVal)) * 100;
-        matchScore = Math.round(score);
-    }
-    
-    // Ensure score is valid number
-    const displayScore = hasDistance ? Math.max(0, matchScore) : null;
+    // Format distance for display
+    const formattedDistance = hasDistance ? rawDistance.toFixed(3) : null;
 
     return (
         <div className="relative h-full flex flex-col p-5">
             {/* Top Right Actions: Match Score + Bookmark + Price */}
             <div className="absolute top-4 right-4 z-10 flex flex-col items-end gap-1">
                 <div className="flex items-center gap-2">
-                    {displayScore !== null && (
+                    {formattedDistance !== null && (
                         <div className={`text-xs font-bold text-white px-2 py-1 rounded-md shadow-sm ${
-                            // Same logic as before
-                            matchScore >= 80 ? 'bg-gradient-to-r from-emerald-500 to-green-500' :
-                            matchScore >= 60 ? 'bg-gradient-to-r from-blue-500 to-cyan-500' :
-                            matchScore >= 40 ? 'bg-gradient-to-r from-indigo-500 to-purple-500' :
+                            // Color coding based on raw distance
+                            // < 0.2 (Very Close): Emerald
+                            // < 0.35 (Close): Blue
+                            // < 0.5 (Moderate): Indigo
+                            // >= 0.5 (Far): Gray
+                            rawDistance < 0.2 ? 'bg-gradient-to-r from-emerald-500 to-green-500' :
+                            rawDistance < 0.35 ? 'bg-gradient-to-r from-blue-500 to-cyan-500' :
+                            rawDistance < 0.5 ? 'bg-gradient-to-r from-indigo-500 to-purple-500' :
                             'bg-gradient-to-r from-gray-500 to-gray-600'
                         }`}>
-                            {matchScore}%
+                            Dist: {formattedDistance}
                         </div>
                     )}
                     
