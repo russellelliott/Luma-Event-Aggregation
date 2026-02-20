@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tag, Users, Bookmark } from 'lucide-react';
+import { Tag, Users, Bookmark, DollarSign } from 'lucide-react';
 
 const EVENT_TYPES = [
   { id: 'career_fair', label: 'Career Fair' },
@@ -7,7 +7,7 @@ const EVENT_TYPES = [
   { id: 'workshop', label: 'Workshop' },
   { id: 'networking', label: 'Networking' },
   { id: 'conference', label: 'Conference' },
-  { id: 'demo_day', label: 'Demo Day' },
+  { id: 'demo_day', label: 'Panel' },
   { id: 'panel_discussion', label: 'Panel' },
 ];
 
@@ -30,23 +30,43 @@ export default function ClassificationFilter({ selectedFilters, onFilterChange }
   const handleBookmarkToggle = () => {
     onFilterChange('bookmarked', !selectedFilters.bookmarked);
   };
+  
+  const handlePaidToggle = () => {
+    onFilterChange('showPaid', !selectedFilters.showPaid);
+  };
 
   return (
     <div className="space-y-3">
-      {/* Bookmarks */}
-      <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100">
+      {/* Search & Filter Controls */}
+      <div className="grid grid-cols-2 gap-2">
+        {/* Bookmarks */}
         <button
           onClick={handleBookmarkToggle}
           className={`
-            w-full flex items-center justify-center gap-2 p-2 rounded-lg border transition-all text-sm font-medium
+            flex items-center justify-center gap-2 p-2 rounded-lg border transition-all text-xs font-medium h-10
             ${selectedFilters.bookmarked
               ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
-              : 'text-gray-600 hover:bg-gray-50 border-gray-200'
+              : 'bg-white text-gray-600 hover:bg-gray-50 border-gray-200'
             }
           `}
         >
           <Bookmark className={`w-3.5 h-3.5 ${selectedFilters.bookmarked ? 'fill-current' : ''}`} />
-          Show Bookmarked Only
+          Bookmarks Only
+        </button>
+        
+        {/* Paid Filter */}
+        <button
+          onClick={handlePaidToggle}
+          className={`
+            flex items-center justify-center gap-2 p-2 rounded-lg border transition-all text-xs font-medium h-10
+            ${selectedFilters.showPaid
+              ? 'bg-green-50 text-green-700 border-green-200'
+              : 'bg-white text-gray-500 hover:bg-gray-50 border-gray-200'
+            }
+          `}
+        >
+          <DollarSign className="w-3.5 h-3.5" />
+          {selectedFilters.showPaid ? 'Includes Paid' : 'Free Only'}
         </button>
       </div>
 

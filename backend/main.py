@@ -12,6 +12,7 @@ from filterEvents import load_events, apply_filters, convert_to_serializable, ge
 from pydantic import BaseModel
 from eventDescription import get_luma_event_info
 from classifyEvents import classify_event
+from eventSearch import search_events
 from datetime import datetime
 import uuid
 import pandas as pd
@@ -136,20 +137,41 @@ def get_all_events(
     event_type: Optional[List[str]] = Query(None, alias="event-type"),
     audience: Optional[List[str]] = Query(None),
     bookmarked: bool = Query(False),
-    include_past: bool = Query(False)
+    include_past: bool = Query(False),
+    query: Optional[str] = Query(None)
 ):
     """Fetch all events with distance enrichment, no location filtering"""
     try:
+        events_to_filter = ALL_EVENTS
+        
+        # If searching, apply search logic which updates cosine_distance
+        if query and query.strip():
+            print(f"Searching for: {query}")
+            # Search updates cosine_distance in place or returns new list
+            # Create a shallow copy of events so we don't modify the global ALL_EVENTS with search results
+            events_copy = [e.copy() for e in ALL_EVENTS]
+            events_to_filter = search_events(query, events_copy)
+            
+            # When searching, we want to KEEP the search-based distances, 
+            # so we tell apply_filters NOT to recalculate bookmark distances
+            should_recalc = False
+        else:
+            # When not searching, we want bookmark-based distances (default behavior)
+            events_to_filter = ALL_EVENTS
+            should_recalc = True
+        
         filtered_events = apply_filters(
-            ALL_EVENTS,
+            events_to_filter,
             location=None,  # Don't filter by location
             dates=None,
             weekdays=None,
             event_types=event_type,
             audiences=audience,
             bookmarked=bookmarked,
-            include_past=include_past
+            include_past=include_past,
+            recalculate_distances=should_recalc
         )
+
         
         # Normalize URLs in the response
         response_events = []
@@ -170,17 +192,21 @@ def get_all_events(
             
             response_events.append(event_copy)
         
-        # Enrich with distance info
+        # Enrich with distance info (travel distance)
         response_events = enrich_events_with_distance(response_events)
 
-        # Sort by start_at
-        def get_start_time(e):
-            start_at = e.get('start_at')
-            if not start_at and isinstance(e.get('event'), dict):
-                start_at = e['event'].get('start_at')
-            return start_at or ""
-        
-        response_events.sort(key=get_start_time)
+        # Sort logic
+        # If query is present, sort by cosine_distance (relevance) ascending
+        # Otherwise sort by start_at
+        if query and query.strip():
+             response_events.sort(key=lambda x: x.get('cosine_distance') if x.get('cosine_distance') is not None else float('inf'))
+        else:
+            def get_start_time(e):
+                start_at = e.get('start_at')
+                if not start_at and isinstance(e.get('event'), dict):
+                    start_at = e['event'].get('start_at')
+                return start_at or ""
+            response_events.sort(key=get_start_time)
 
         return clean_nans(convert_to_serializable(response_events))
     except Exception as e:

@@ -284,12 +284,10 @@ def filter_by_future(events, include_past, pacific_tz):
             
     return filtered
 
-def apply_filters(events, location=None, dates=None, weekdays=None, event_types=None, audiences=None, bookmarked=False, include_past=False):
-    # Recalculate cosine distances based on current bookmarks
-    # This ensures dynamic updates when bookmarks change
+def update_cosine_distances(events):
+    """Recalculate cosine distances based on current bookmarks."""
     try:
         # Find all currently bookmarked events with embeddings
-        # Use simple iteration for safety
         bookmarked_vectors = []
         
         # Helper to safely navigate
@@ -302,7 +300,7 @@ def apply_filters(events, location=None, dates=None, weekdays=None, event_types=
 
         for e in events:
             is_mark = get_field(e, 'bookmarked')
-            vector = e.get('vector') # Vector is top-level only based on schema
+            vector = e.get('vector')
             
             if is_mark is True and vector is not None and isinstance(vector, (list, np.ndarray)):
                 bookmarked_vectors.append(vector)
@@ -336,7 +334,13 @@ def apply_filters(events, location=None, dates=None, weekdays=None, event_types=
              for e in events: e['cosine_distance'] = None
 
     except Exception as e:
-        print(f"⚠️ Error updating cosine distances in apply_filters: {e}")
+        print(f"⚠️ Error updating cosine distances: {e}")
+
+def apply_filters(events, location=None, dates=None, weekdays=None, event_types=None, audiences=None, bookmarked=False, include_past=False, recalculate_distances=True):
+    # Recalculate cosine distances based on current bookmarks ONLY if requested
+    # This ensures dynamic updates when bookmarks change, but allows overriding for search queries
+    if recalculate_distances:
+        update_cosine_distances(events)
 
     pacific_tz = ZoneInfo("America/Los_Angeles")
     

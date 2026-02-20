@@ -123,7 +123,7 @@ const getPriceLabel = (ticketInfo) => {
  * @param {Function} props.onBookmark - Callback for bookmarking.
  * @returns {JSX.Element}
  */
-const EventCard = ({ events, onBookmark }) => {
+const EventCard = ({ events, onBookmark, onViewEvent, isSearching }) => {
   // Sort and group events
   const groupEventsByDate = (eventList) => {
     // First, filter out invalid events
@@ -131,6 +131,11 @@ const EventCard = ({ events, onBookmark }) => {
         const date = item.start_at || (item.event && item.event.start_at);
         return date;
     });
+
+    // If searching, return flat list (already sorted by relevance from backend)
+    if (isSearching) {
+        return validEvents;
+    }
 
     // Grouping
     const groups = {};
@@ -179,9 +184,9 @@ const EventCard = ({ events, onBookmark }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {displayItems.map((item, index) => {
           if (item.type === 'stack') {
-             return <EventStack key={`stack-${item.date}`} events={item.events} onBookmark={onBookmark} />;
+             return <EventStack key={`stack-${item.date}`} events={item.events} onBookmark={onBookmark} onViewEvent={onViewEvent} isSearching={isSearching} />;
           } else {
-             return <SingleEventCard key={item.id || index} item={item} onBookmark={onBookmark} />;
+             return <SingleEventCard key={item.id || index} item={item} onBookmark={onBookmark} onViewEvent={onViewEvent} isSearching={isSearching} />;
           }
         })}
       </div>
@@ -189,7 +194,7 @@ const EventCard = ({ events, onBookmark }) => {
   );
 };
 
-const EventStack = ({ events, onBookmark }) => {
+const EventStack = ({ events, onBookmark, onViewEvent, isSearching }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const item = events[currentIndex];
     const total = events.length;
@@ -243,21 +248,21 @@ const EventStack = ({ events, onBookmark }) => {
                     )}
                 </div>
 
-                <SingleEventCardContent item={item} onBookmark={onBookmark} />
+                <SingleEventCardContent item={item} onBookmark={onBookmark} onViewEvent={onViewEvent} isSearching={isSearching} />
             </div>
         </div>
     );
 };
 
-const SingleEventCard = ({ item, onBookmark }) => {
+const SingleEventCard = ({ item, onBookmark, onViewEvent, isSearching }) => {
     return (
         <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-200 hover:shadow-xl transition-shadow duration-300 flex flex-col relative h-full">
-            <SingleEventCardContent item={item} onBookmark={onBookmark} />
+            <SingleEventCardContent item={item} onBookmark={onBookmark} onViewEvent={onViewEvent} isSearching={isSearching} />
         </div>
     );
 };
 
-const SingleEventCardContent = ({ item, onBookmark }) => {
+const SingleEventCardContent = ({ item, onBookmark, onViewEvent, isSearching }) => {
     // Use optional chaining and nullish coalescing for safety
     // Handle both nested and flat event structures
     const event = item.event || item;
@@ -282,25 +287,18 @@ const SingleEventCardContent = ({ item, onBookmark }) => {
     const distance = item.cosine_distance;
     const hasDistance = distance !== undefined && distance !== null;
     
-    // Calculate Match Score based on observed statistics (Min: ~0.06, Mean: ~0.13, Max: ~0.32)
-    // We want a score of 0-100%.
-    // 0.05 distance is extremely close (should be ~95-100%)
-    // 0.32 distance is far (should be ~0-20%)
-    
-    // Linear interpolation:
-    // Score = 100 - ((distance - min_observed) / (max_observed - min_observed)) * 100
-    // But let's act as if 0 is possible perfect match.
-    // Let's assume a "Good" match is < 0.10 and a "Bad" match is > 0.30
+    // Calculate Match Score based on observed statistics
+    // Bookmarks: Min ~0.06, Mean ~0.13, Max ~0.32
+    // Search: Typically larger distances (0.3 - 0.7)
     
     let matchScore = 0;
     if (hasDistance) {
-        // Clamp distance to reasonable bounds based on data
-        // Min 0.05, Max 0.35
-        const minVal = 0.05;
-        const maxVal = 0.35;
+        // Different scaling for search vs bookmarks
+        const minVal = isSearching ? 0.2 : 0.05;
+        const maxVal = isSearching ? 0.6 : 0.35;
         
         // Calculate percentage: Lower distance = Higher score
-        // Only calculate if distance exists
+        // Clamp distance to bounds
         let score = (1 - (Math.max(minVal, Math.min(distance, maxVal)) - minVal) / (maxVal - minVal)) * 100;
         matchScore = Math.round(score);
     }
@@ -396,6 +394,10 @@ const SingleEventCardContent = ({ item, onBookmark }) => {
                 href={eventUrl} 
                 target="_blank" 
                 rel="noopener noreferrer" 
+                onClick={(e) => {
+                    // Trigger popup (does not prevent default, so link still opens)
+                    if (onViewEvent) onViewEvent(item);
+                }}
                 className={`mt-auto inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white focus:outline-none focus:ring-2 focus:ring-offset-2 transition duration-150 w-full ${
                 isLumaEvent
                     ? 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500'

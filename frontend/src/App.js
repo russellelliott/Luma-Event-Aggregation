@@ -1,12 +1,48 @@
-import React, { useState, useEffect } from 'react';
-import { Home, Plus } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Home, Plus, X, Loader } from 'lucide-react';
 import DistanceSlider from './components/DistanceSlider';
 import ClassificationFilter from './components/ClassificationFilter';
 import MultiDayCalendar from './components/MultiDayCalendar';
 import DayPicker from './components/DayPicker';
 import EventCard from './components/EventCard';
 import AddEvent from './components/AddEvent';
+import SearchBar from './components/SearchBar';
+import MatchSlider from './components/MatchSlider';
 import './App.css';
+
+// Reuse the match score calculation logic from EventCard to ensure consistency
+const calculateMatchScore = (distance) => {
+  if (distance === undefined || distance === null) return 0;
+  
+  // Clamp distance to reasonable bounds based on data
+  // Min 0.05, Max 0.35
+  const minVal = 0.05;
+  const maxVal = 0.35;
+  
+  // Calculate percentage: Lower distance = Higher score
+  let score = (1 - (Math.max(minVal, Math.min(distance, maxVal)) - minVal) / (maxVal - minVal)) * 100;
+  return Math.round(score);
+};
+
+// Simple Modal Component
+const Modal = ({ isOpen, onClose, title, children }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm transition-opacity">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden transform transition-all">
+        <div className="flex justify-between items-center p-4 border-b">
+          <h3 className="font-semibold text-gray-900">{title}</h3>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-full">
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+        <div className="p-6">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 function App() {
   const [cities, setCities] = useState([]);
@@ -14,13 +50,24 @@ function App() {
   const [selectedFilters, setSelectedFilters] = useState({
     eventTypes: [],
     audienceCategories: [],
-    bookmarked: false
+    bookmarked: false,
+    showPaid: false // Default: Do not show paid events
   });
   const [selectedDates, setSelectedDates] = useState([]);
   const [selectedDays, setSelectedDays] = useState(new Set());
   const [allEvents, setAllEvents] = useState([]);
   const [filteredEvents, setFilteredEvents] = useState([]);
   const [view, setView] = useState('home');
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Search and Match Slider State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [minMatch, setMinMatch] = useState(0);
+  const [matchRange, setMatchRange] = useState({ min: 0, max: 100 });
+  
+  // Bookmark Modal State
+  const [bookmarkModalOpen, setBookmarkModalOpen] = useState(false);
+  const [pendingBookmarkEventId, setPendingBookmarkEventId] = useState(null);
 
   useEffect(() => {
     fetch('http://localhost:8001/cities')
@@ -45,22 +92,45 @@ function App() {
     if (selectedFilters.bookmarked) {
       params.append('bookmarked', 'true');
     }
+    
+    // Add search query
+    if (searchQuery) {
+      params.append('query', searchQuery);
+    }
 
+    setIsLoading(true);
     fetch(`http://localhost:8001/events/all?${params.toString()}`)
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
           setAllEvents(data);
+          
+          // Calculate match range on load/search
+          const scores = data.map(e => calculateMatchScore(e.cosine_distance)).filter(s => s !== null);
+          if (scores.length > 0) {
+            const min = Math.min(...scores);
+            const max = Math.max(...scores);
+            setMatchRange({ min, max });
+            
+            // Ensure minMatch is at least the minimum available score
+            if (minMatch < min || searchQuery) {
+                setMinMatch(min);
+            }
+          } else {
+             setMatchRange({ min: 0, max: 100 });
+             if (searchQuery) setMinMatch(0);
+          }
         } else {
           console.error("Received non-array data:", data);
           setAllEvents([]);
         }
       })
-      .catch(err => console.error('Error fetching events:', err));
+      .catch(err => console.error('Error fetching events:', err))
+      .finally(() => setIsLoading(false));
 
-  }, [selectedFilters]);
+  }, [selectedFilters.eventTypes, selectedFilters.audienceCategories, selectedFilters.bookmarked, searchQuery]); // Exclude selectedFilters.showPaid from fetch dep, handle on client
 
-  // Filter events by distance client-side
+  // Filter events client-side
   useEffect(() => {
     if (cities.length === 0 || allEvents.length === 0) {
       setFilteredEvents([]);
@@ -68,44 +138,39 @@ function App() {
     }
 
     // Get max distance from current slider position
-    // If selectedCityIndex exceeds bounds, use the last one or failsafe
     const cityIndex = Math.min(selectedCityIndex, cities.length - 1);
-    
-    // Calculate the effective max distance.
-    // Since cities might be sorted by duration but we filter by distance, specific cities later in the list
-    // might have shorter distances (e.g. traffic differences).
-    // To ensure the slider is monotonic (dragging right always includes more or same area),
-    // we should take the maximum distance of all cities up to the selected index.
     const citiesUpToSlider = cities.slice(0, cityIndex + 1);
     const maxDistance = Math.max(...citiesUpToSlider.map(c => c.distance_miles || 0));
-    
-    // We used to have a fallback here for maxDistance === 0 to show all events,
-    // but that breaks the case where the user wants only events at the starting location (distance 0).
-    // Now we just proceed to filter.
 
     const filtered = allEvents.filter(event => {
+      // 1. Distance Filter
       const distanceInfo = event.distance_info;
-      
-      // If we have valid distance info, use it to filter
+      let validDistance = false;
       if (distanceInfo && typeof distanceInfo.distance_miles === 'number') {
-        return distanceInfo.distance_miles <= maxDistance;
+        validDistance = distanceInfo.distance_miles <= maxDistance;
+      } else {
+        validDistance = false;
+      }
+      if (!validDistance) return false;
+
+      // 2. Paid/Free Filter
+      // If showPaid is false, ONLY show Free events
+      if (!selectedFilters.showPaid) {
+        const ticketInfo = event.ticket_info || (event.event && event.event.ticket_info);
+        const price = ticketInfo?.price?.cents || 0;
+        const maxPrice = ticketInfo?.max_price?.cents || 0;
+        if (price > 0 || maxPrice > 0) return false;
       }
       
-      // If no distance info is available (e.g. "Unknown city" or parsing error),
-      // we have to decide whether to show it.
-      // 
-      // If the slider is at the very beginning (closest only), we probably want to be strict.
-      // If the slider is further out, being permissive prevents missing events.
-      //
-      // However, since we want "events closer than that", undefined distance usually implies 
-      // we don't know where it is, so it's safer to hide it unless the slider is maxed out.
-      // 
-      // Current behavior: strict filtering (must have distance <= max).
-      return false; 
+      // 3. Match Percentage Filter
+      const score = calculateMatchScore(event.cosine_distance);
+      if (score < minMatch) return false;
+
+      return true;
     });
     
     setFilteredEvents(filtered);
-  }, [allEvents, selectedCityIndex, cities]);
+  }, [allEvents, selectedCityIndex, cities, selectedFilters.showPaid, minMatch]);
 
   // Filter events client-side based on Date/Weekday selection
   const visibleEvents = React.useMemo(() => {
@@ -143,7 +208,7 @@ function App() {
     }));
   };
 
-  const handleBookmark = (id, isBookmarked) => {
+  const bookmarkEvent = (id, isBookmarked) => {
     // Optimistic update for home list
     setAllEvents(prevEvents => {
       const updated = prevEvents.map(event => 
@@ -176,6 +241,25 @@ function App() {
         event.id === id ? { ...event, bookmarked: !isBookmarked } : event
       ));
     });
+  };
+
+  const handleBookmark = (id, isBookmarked) => {
+    bookmarkEvent(id, isBookmarked);
+  };
+  
+  const handleViewEvent = (event) => {
+      if (!event.bookmarked) {
+          setPendingBookmarkEventId(event.id);
+          setBookmarkModalOpen(true);
+      }
+  };
+
+  const confirmBookmark = () => {
+      if (pendingBookmarkEventId) {
+          bookmarkEvent(pendingBookmarkEventId, true);
+      }
+      setBookmarkModalOpen(false);
+      setPendingBookmarkEventId(null);
   };
 
   return (
@@ -211,6 +295,10 @@ function App() {
 
         {view === 'home' && (
           <>
+            <div className="mb-6 flex flex-col md:flex-row gap-4 justify-center items-center">
+                <SearchBar onSearch={setSearchQuery} />
+            </div>
+
             <DistanceSlider 
               cities={cities}
               selectedCityIndex={selectedCityIndex}
@@ -235,6 +323,12 @@ function App() {
                   onFilterChange={handleFilterChange}
                 />
                 
+                <MatchSlider 
+                    minMatch={minMatch} 
+                    setMinMatch={setMinMatch} 
+                    range={matchRange} // Pass dynamic range
+                />
+                
                 <DayPicker 
                   selectedDays={selectedDays}
                   onDaysChange={setSelectedDays}
@@ -243,7 +337,18 @@ function App() {
             </div>
 
             <div className="mt-12">
-              <EventCard events={visibleEvents} onBookmark={handleBookmark} />
+              {isLoading ? (
+                  <div className="flex justify-center items-center h-64">
+                    <Loader className="w-12 h-12 animate-spin text-indigo-600" />
+                  </div>
+              ) : (
+                  <EventCard 
+                    events={visibleEvents} 
+                    onBookmark={handleBookmark} 
+                    onViewEvent={handleViewEvent}
+                    isSearching={!!searchQuery} // Pass search state
+                  />
+              )}
             </div>
           </>
         )}
@@ -251,14 +356,37 @@ function App() {
         {view === 'add-event' && (
           <AddEvent 
             onEventAdded={(newEvent) => {
-              // If we are currently showing a list that should include this event, append it
-              // But simplest is to just switch view and let fetch happen or just append
               setAllEvents(prev => [...prev, newEvent]);
               setView('home');
             }}
             onCancel={() => setView('home')}
           />
         )}
+        
+        {/* Bookmark Prompt Modal */}
+        <Modal 
+            isOpen={bookmarkModalOpen} 
+            onClose={() => setBookmarkModalOpen(false)}
+            title="Bookmark this event?"
+        >
+            <p className="text-gray-600 mb-6">
+                You just viewed this event on Luma. Would you like to add it to your bookmarks for easier access later?
+            </p>
+            <div className="flex justify-end gap-3">
+                <button 
+                    onClick={() => setBookmarkModalOpen(false)}
+                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium transition-colors"
+                >
+                    No thanks
+                </button>
+                <button 
+                    onClick={confirmBookmark}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm"
+                >
+                    Yes, Bookmark
+                </button>
+            </div>
+        </Modal>
       </div>
     </div>
   );
