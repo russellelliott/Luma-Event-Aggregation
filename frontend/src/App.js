@@ -55,6 +55,40 @@ function App() {
   const [bookmarkModalOpen, setBookmarkModalOpen] = useState(false);
   const [pendingBookmarkEventId, setPendingBookmarkEventId] = useState(null);
 
+  const hasPaidPricing = (pricing) => {
+    if (!pricing) return false;
+
+    let parsedPricing = pricing;
+    if (typeof pricing === 'string') {
+      const trimmed = pricing.trim();
+      if (!trimmed) return false;
+
+      if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+        try {
+          parsedPricing = JSON.parse(trimmed);
+        } catch {
+          // Fallback for non-JSON text values such as "$1300" or "paid".
+          const lower = trimmed.toLowerCase();
+          if (lower.includes('paid')) return true;
+          const amountMatch = trimmed.match(/\d+(?:\.\d+)?/);
+          return Boolean(amountMatch && Number(amountMatch[0]) > 0);
+        }
+      } else {
+        const lower = trimmed.toLowerCase();
+        if (lower.includes('free')) return false;
+        if (lower.includes('paid')) return true;
+        const amountMatch = trimmed.match(/\d+(?:\.\d+)?/);
+        return Boolean(amountMatch && Number(amountMatch[0]) > 0);
+      }
+    }
+
+    const pricingList = Array.isArray(parsedPricing) ? parsedPricing : [parsedPricing];
+    return pricingList.some((option) => {
+      const value = Number(option?.price ?? 0);
+      return Number.isFinite(value) && value > 0;
+    });
+  };
+
   // Effect to switch view mode based on search status
   useEffect(() => {
     if (searchQuery) {
@@ -141,16 +175,7 @@ function App() {
       // 2. Paid/Free Filter
       // If showPaid is false, ONLY show Free events
       if (!selectedFilters.showPaid) {
-        const pricing = event.pricing;
-        const pricingText = typeof pricing === 'string' ? pricing.toLowerCase() : '';
-        if (pricingText && pricingText.includes('paid')) return false;
-        if (Array.isArray(pricing)) {
-          const hasPaidOption = pricing.some(option => {
-            const value = Number(option?.price ?? 0);
-            return Number.isFinite(value) && value > 0;
-          });
-          if (hasPaidOption) return false;
-        }
+        if (hasPaidPricing(event.pricing)) return false;
       }
       
       return true;
