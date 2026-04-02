@@ -41,6 +41,23 @@ def assign_outliers_to_fallback(topics):
     return [fallback_topic if topic == -1 else topic for topic in topics]
 
 
+def next_cluster_id(counter_state):
+    cluster_id = counter_state[0]
+    counter_state[0] += 1
+    return cluster_id
+
+
+def summarize_cluster_label(docs, max_terms=3):
+    token_counts = Counter()
+    for doc in docs:
+        token_counts.update(token for token in tokenize_text(doc) if len(token) > 2 and not token.isdigit())
+
+    top_terms = [word for word, _ in token_counts.most_common(max_terms)]
+    if not top_terms:
+        return "Misc"
+    return " / ".join(top_terms)
+
+
 def tokenize_text(text):
     return re.findall(r"[A-Za-z][A-Za-z0-9']*", (text or "").lower())
 
@@ -69,6 +86,90 @@ def remove_high_frequency_stopwords(docs, frequency_threshold=0.001):
         for doc_tokens in tokenized_docs
     ]
     return filtered_docs, dynamic_stopwords
+
+
+def cluster_documents_recursively(
+    docs,
+    indices,
+    total_docs,
+    cluster_id_counter,
+    min_topic_size,
+    max_cluster_fraction=0.10,
+):
+    """Recursively cluster documents until no cluster exceeds the corpus fraction threshold."""
+    subset_docs = [docs[index] for index in indices]
+    subset_size = len(indices)
+
+    if subset_size == 0:
+        return {}, {}, {}
+
+    # Base case: tiny groups or groups already under the split threshold become leaf clusters.
+    if subset_size == 1 or (subset_size / total_docs) <= max_cluster_fraction or subset_size < 2:
+        cluster_id = next_cluster_id(cluster_id_counter)
+        label = summarize_cluster_label(subset_docs)
+        color = random_hex_color()
+        return {index: cluster_id for index in indices}, {cluster_id: label}, {cluster_id: color}
+
+    effective_min_topic_size = max(2, min(min_topic_size, max(2, subset_size // 10)))
+    device = "mps" if torch.backends.mps.is_available() else "cpu"
+    embedding_model = SentenceTransformer(
+        "all-MiniLM-L6-v2",
+        device=device,
+    )
+
+    topic_model = BERTopic(
+        embedding_model=embedding_model,
+        min_topic_size=effective_min_topic_size,
+        calculate_probabilities=False,
+        verbose=False,
+    )
+
+    topics, _ = topic_model.fit_transform(subset_docs)
+    topics = assign_outliers_to_fallback(topics)
+
+    groups = {}
+    for local_index, topic_id in enumerate(topics):
+        groups.setdefault(topic_id, []).append(indices[local_index])
+
+    # If BERTopic could not split the subset meaningfully, treat it as one leaf cluster.
+    if len(groups) <= 1:
+        cluster_id = next_cluster_id(cluster_id_counter)
+        label = summarize_cluster_label(subset_docs)
+        color = random_hex_color()
+        return {index: cluster_id for index in indices}, {cluster_id: label}, {cluster_id: color}
+
+    doc_to_cluster = {}
+    cluster_labels = {}
+    cluster_colors = {}
+
+    for topic_id, topic_indices in groups.items():
+        topic_size = len(topic_indices)
+        topic_ratio = topic_size / total_docs
+
+        # Split again if this cluster is still too large and has enough documents to cluster.
+        if topic_size > 1 and topic_ratio > max_cluster_fraction:
+            child_doc_to_cluster, child_labels, child_colors = cluster_documents_recursively(
+                docs=docs,
+                indices=topic_indices,
+                total_docs=total_docs,
+                cluster_id_counter=cluster_id_counter,
+                min_topic_size=min_topic_size,
+                max_cluster_fraction=max_cluster_fraction,
+            )
+            doc_to_cluster.update(child_doc_to_cluster)
+            cluster_labels.update(child_labels)
+            cluster_colors.update(child_colors)
+            continue
+
+        cluster_id = next_cluster_id(cluster_id_counter)
+        label = summarize_cluster_label([docs[index] for index in topic_indices])
+        color = random_hex_color()
+        for index in topic_indices:
+            doc_to_cluster[index] = cluster_id
+        cluster_labels[cluster_id] = label
+        cluster_colors[cluster_id] = color
+
+    return doc_to_cluster, cluster_labels, cluster_colors
 
 
 def _to_text_or_none(value):
@@ -294,30 +395,19 @@ def cluster_event_topics(min_topic_size=8):
         f"Removed {len(dynamic_stopwords)} high-frequency stopwords (>0.1% corpus frequency) for clustering input."
     )
 
-    device = "mps" if torch.backends.mps.is_available() else "cpu"
-    embedding_model = SentenceTransformer(
-        "all-MiniLM-L6-v2",
-        device=device,
-    )
-
-    topic_model = BERTopic(
-        embedding_model=embedding_model,
+    cluster_id_counter = [0]
+    doc_to_cluster, cluster_labels, cluster_colors = cluster_documents_recursively(
+        docs=clustering_docs,
+        indices=list(range(len(clustering_docs))),
+        total_docs=len(clustering_docs),
+        cluster_id_counter=cluster_id_counter,
         min_topic_size=min_topic_size,
-        calculate_probabilities=False,
-        verbose=True,
+        max_cluster_fraction=0.10,
     )
-    topics, _ = topic_model.fit_transform(clustering_docs)
-    topics = assign_outliers_to_fallback(topics)
 
-    unique_topics = sorted({topic for topic in topics if topic != -1})
-    topic_color_map = {topic_id: random_hex_color() for topic_id in unique_topics}
-    topic_color_map[-1] = random_hex_color()
-
-    labels = []
-    colors = []
-    for topic_id in topics:
-        labels.append(build_topic_label(topic_model, topic_id))
-        colors.append(topic_color_map.get(topic_id, "#64748B"))
+    topics = [doc_to_cluster[index] for index in range(len(clustering_docs))]
+    labels = [cluster_labels[topic_id] for topic_id in topics]
+    colors = [cluster_colors[topic_id] for topic_id in topics]
 
     df["topic_id"] = topics
     df["topic_label"] = labels
@@ -326,9 +416,18 @@ def cluster_event_topics(min_topic_size=8):
     events_table = build_events_arrow_table(df)
     db.create_table("events", data=events_table, mode="overwrite")
 
-    topic_info = topic_model.get_topic_info()
+    cluster_counts = Counter(topics)
+    summary_rows = sorted(
+        (
+            (cluster_id, count, cluster_labels.get(cluster_id, "Misc"))
+            for cluster_id, count in cluster_counts.items()
+        ),
+        key=lambda item: (-item[1], item[0]),
+    )
     print("Updated topic clusters.")
-    print(topic_info[["Topic", "Count", "Name"]].head(20).to_string(index=False))
+    print(f"{'Topic':>6}  {'Count':>5}  Name")
+    for cluster_id, count, label in summary_rows[:20]:
+        print(f"{cluster_id:>6}  {count:>5}  {label}")
 
 
 if __name__ == "__main__":
