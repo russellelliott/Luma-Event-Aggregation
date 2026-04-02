@@ -61,6 +61,7 @@ CUSTOM_CLUSTER_STOP_WORDS = {
     "female", "immigrant", "wwdc", "swift", "meetup", "v11", "social", "connections",
     "conversations", "content",
     "group", "see", "humanx", "collective", "gathering",
+    "make", "good", "non", "but", "german", "ontology", "flourishing",
 
     # 6. DOCUMENT META & GEOGRAPHY (Data artifact noise)
     "https", "com", "www", "io", "website", "post", "link", "information",
