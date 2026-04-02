@@ -62,6 +62,16 @@ CUSTOM_CLUSTER_STOP_WORDS = {
     "conversations", "content",
     "group", "see", "humanx", "collective", "gathering",
     "make", "good", "non", "but", "german", "ontology", "flourishing",
+    "gain", "via",
+    "something",
+    "brazil", "there",
+    "above", "also", "vently",
+    "while",
+    "intersection", "some", "swissnex",
+    "communitykit",
+    "best",
+    "oro",
+    "her",
 
     # 6. DOCUMENT META & GEOGRAPHY (Data artifact noise)
     "https", "com", "www", "io", "website", "post", "link", "information",
