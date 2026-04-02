@@ -89,9 +89,27 @@ const getLocation = (event) => {
  */
 const getPriceLabel = (pricing) => {
     if (!pricing) return 'Price TBD';
-    if (typeof pricing === 'string') return pricing;
-    if (Array.isArray(pricing)) {
-        const prices = pricing
+    
+    let pricingArray = pricing;
+    
+    // If pricing is a JSON string, parse it
+    if (typeof pricing === 'string') {
+        // Check if it looks like JSON
+        if (pricing.startsWith('[') || pricing.startsWith('{')) {
+            try {
+                pricingArray = JSON.parse(pricing);
+            } catch (e) {
+                // If parsing fails, return the string as-is
+                return pricing;
+            }
+        } else {
+            // If it's just a text string, return it
+            return pricing;
+        }
+    }
+    
+    if (Array.isArray(pricingArray)) {
+        const prices = pricingArray
             .map(option => Number(option?.price ?? 0))
             .filter(price => Number.isFinite(price));
         if (!prices.length || prices.every(price => price <= 0)) return 'Free';
