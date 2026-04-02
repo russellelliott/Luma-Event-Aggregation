@@ -10,6 +10,15 @@ def _to_float_or_none(value):
         return None
 
 
+def _to_text_or_none(value):
+    if value is None:
+        return None
+    if isinstance(value, str):
+        text = value.strip()
+        return text if text else None
+    return str(value)
+
+
 def normalize_luma_event(raw):
     """Normalize a raw Luma event payload into the flat project schema."""
     base = raw.get("event") if isinstance(raw.get("event"), dict) else raw
@@ -49,15 +58,15 @@ def normalize_luma_event(raw):
     existing_id = raw.get("id") or base.get("id")
 
     return {
-        "id": existing_id if isinstance(existing_id, str) and existing_id else str(uuid.uuid4()),
-        "name": base.get("name") or base.get("title"),
-        "url": url,
-        "start_at": base.get("start_at") or raw.get("start_at"),
-        "end_at": base.get("end_at") or raw.get("end_at"),
-        "description": base.get("description") or raw.get("description"),
-        "timezone": base.get("timezone") or raw.get("timezone") or "America/Los_Angeles",
+        "id": _to_text_or_none(existing_id) or str(uuid.uuid4()),
+        "name": _to_text_or_none(base.get("name") or base.get("title")),
+        "url": _to_text_or_none(url),
+        "start_at": _to_text_or_none(base.get("start_at") or raw.get("start_at")),
+        "end_at": _to_text_or_none(base.get("end_at") or raw.get("end_at")),
+        "description": _to_text_or_none(base.get("description") or raw.get("description")),
+        "timezone": _to_text_or_none(base.get("timezone") or raw.get("timezone")) or "America/Los_Angeles",
         "pricing": base.get("pricing") or raw.get("pricing"),
-        "city": city,
+        "city": _to_text_or_none(city),
         "coordinates": {
             "latitude": _to_float_or_none(latitude),
             "longitude": _to_float_or_none(longitude),
@@ -65,7 +74,7 @@ def normalize_luma_event(raw):
         "bookmarked": bool(raw.get("bookmarked", False)),
         "vector": raw.get("vector"),
         "topic_id": raw.get("topic_id"),
-        "topic_label": raw.get("topic_label"),
-        "topic_color": raw.get("topic_color"),
+        "topic_label": _to_text_or_none(raw.get("topic_label")),
+        "topic_color": _to_text_or_none(raw.get("topic_color")),
         "cosine_distance": raw.get("cosine_distance"),
     }

@@ -1,5 +1,6 @@
 import json
 import os
+import traceback
 
 import lancedb
 import pyarrow as pa
@@ -62,22 +63,33 @@ def normalize_pricing_for_storage(pricing):
     return json.dumps(pricing, default=str)
 
 
+def _to_text_or_none(value):
+    if value is None:
+        return None
+    if isinstance(value, str):
+        text = value.strip()
+        return text if text else None
+    return str(value)
+
+
 def normalize_event_for_storage(event_entry):
     coordinates = event_entry.get("coordinates") if isinstance(event_entry.get("coordinates"), dict) else {}
     vector = event_entry.get("vector")
     if vector is not None and hasattr(vector, "tolist"):
         vector = vector.tolist()
+    if isinstance(vector, list):
+        vector = [float(item) for item in vector if item is not None]
 
     return {
-        "id": event_entry.get("id"),
-        "name": event_entry.get("name"),
-        "url": event_entry.get("url"),
-        "start_at": event_entry.get("start_at"),
-        "end_at": event_entry.get("end_at"),
-        "description": event_entry.get("description"),
-        "timezone": event_entry.get("timezone"),
+        "id": _to_text_or_none(event_entry.get("id")),
+        "name": _to_text_or_none(event_entry.get("name")),
+        "url": _to_text_or_none(event_entry.get("url")),
+        "start_at": _to_text_or_none(event_entry.get("start_at")),
+        "end_at": _to_text_or_none(event_entry.get("end_at")),
+        "description": _to_text_or_none(event_entry.get("description")),
+        "timezone": _to_text_or_none(event_entry.get("timezone")),
         "pricing": normalize_pricing_for_storage(event_entry.get("pricing")),
-        "city": event_entry.get("city"),
+        "city": _to_text_or_none(event_entry.get("city")),
         "coordinates": {
             "latitude": coordinates.get("latitude"),
             "longitude": coordinates.get("longitude"),
@@ -85,10 +97,77 @@ def normalize_event_for_storage(event_entry):
         "bookmarked": bool(event_entry.get("bookmarked", False)),
         "vector": vector,
         "topic_id": event_entry.get("topic_id"),
-        "topic_label": event_entry.get("topic_label"),
-        "topic_color": event_entry.get("topic_color"),
+        "topic_label": _to_text_or_none(event_entry.get("topic_label")),
+        "topic_color": _to_text_or_none(event_entry.get("topic_color")),
         "cosine_distance": event_entry.get("cosine_distance"),
     }
+
+
+def get_vector_length(events):
+    for event in events:
+        vector = event.get("vector")
+        if isinstance(vector, list) and vector:
+            return len(vector)
+    return None
+
+
+def build_events_table(events):
+    normalized_events = [normalize_event_for_storage(event) for event in events]
+    if not normalized_events:
+        return None
+
+    vector_length = get_vector_length(normalized_events)
+    vector_values = []
+    for record in normalized_events:
+        vector = record["vector"]
+        if vector_length is None or not isinstance(vector, list) or len(vector) != vector_length:
+            vector_values.append(None)
+            continue
+        vector_values.append([float(item) if item is not None else None for item in vector])
+
+    coordinates_array = pa.array(
+        [
+            {
+                "latitude": record["coordinates"]["latitude"],
+                "longitude": record["coordinates"]["longitude"],
+            }
+            for record in normalized_events
+        ],
+        type=pa.struct(
+            [
+                pa.field("latitude", pa.float64()),
+                pa.field("longitude", pa.float64()),
+            ]
+        ),
+    )
+
+    if vector_length is None:
+        vector_array = pa.nulls(len(normalized_events))
+    else:
+        vector_type = pa.list_(pa.float32(), vector_length)
+        vector_array = pa.array(vector_values, type=vector_type)
+
+    return pa.Table.from_arrays(
+        [
+            pa.array([record["id"] for record in normalized_events], type=pa.string()),
+            pa.array([record["name"] for record in normalized_events], type=pa.string()),
+            pa.array([record["url"] for record in normalized_events], type=pa.string()),
+            pa.array([record["start_at"] for record in normalized_events], type=pa.string()),
+            pa.array([record["end_at"] for record in normalized_events], type=pa.string()),
+            pa.array([record["description"] for record in normalized_events], type=pa.string()),
+            pa.array([record["timezone"] for record in normalized_events], type=pa.string()),
+            pa.array([record["pricing"] for record in normalized_events], type=pa.string()),
+            pa.array([record["city"] for record in normalized_events], type=pa.string()),
+            coordinates_array,
+            pa.array([record["bookmarked"] for record in normalized_events], type=pa.bool_()),
+            vector_array,
+            pa.array([record["topic_id"] for record in normalized_events], type=pa.int64()),
+            pa.array([record["topic_label"] for record in normalized_events], type=pa.string()),
+            pa.array([record["topic_color"] for record in normalized_events], type=pa.string()),
+            pa.array([record["cosine_distance"] for record in normalized_events], type=pa.float64()),
+        ],
+        schema=events_schema(),
+    )
 
 
 def load_events_from_lancedb(db_path=None):
@@ -106,11 +185,11 @@ def save_events_to_lancedb(events, db_path=None):
     db_path = get_db_path(db_path)
 
     db = lancedb.connect(db_path)
-    normalized_events = [normalize_event_for_storage(event) for event in events]
-    if not normalized_events:
+    events_table = build_events_table(events)
+    if events_table is None:
         return
 
-    db.create_table("events", data=pa.Table.from_pylist(normalized_events, schema=events_schema()), mode="overwrite")
+    db.create_table("events", data=events_table, mode="overwrite")
 
 
 def generate_descriptions_for_all_events(events, delay=1.0, db_path=None):
@@ -132,12 +211,17 @@ def generate_descriptions_for_all_events(events, delay=1.0, db_path=None):
         try:
             print(f"[{i+1}/{len(events)}] Processing: {event_name}")
             print(f"  URL: {event_url}")
+            print("  Event data:")
+            print(json.dumps(normalize_event_for_storage(event_entry), indent=2, default=str))
 
             event_info = get_luma_event_info(str(event_url).strip(), delay=delay)
             if "error" in event_info:
                 print(f"  ⚠️  Error: {event_info['error']}")
                 event_entry["fetch_error"] = event_info["error"]
                 continue
+
+            print("  Fetched event info:")
+            print(json.dumps(event_info, indent=2, default=str))
 
             if "description" in event_info:
                 event_entry["description"] = event_info["description"]
@@ -149,6 +233,7 @@ def generate_descriptions_for_all_events(events, delay=1.0, db_path=None):
         except Exception as exc:
             event_entry["fetch_error"] = str(exc)
             print(f"  ⚠️  Failed to process {event_name}: {exc}")
+            traceback.print_exc()
 
     return events
 
