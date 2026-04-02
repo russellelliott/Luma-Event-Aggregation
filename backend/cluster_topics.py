@@ -37,12 +37,95 @@ def build_topic_label(topic_model, topic_id):
     return " / ".join(top_terms)
 
 
+def assign_outliers_to_fallback(topics):
+    """Ensure every event has a concrete topic id by remapping BERTopic outliers (-1)."""
+    non_outliers = [topic for topic in topics if topic != -1]
+    if non_outliers:
+        fallback_topic = max(set(non_outliers), key=non_outliers.count)
+    else:
+        fallback_topic = 0
+    return [fallback_topic if topic == -1 else topic for topic in topics]
+
+
 def backup_events_table(db, events_df):
+    backup_df = events_df.copy()
+    backup_df = backup_df.where(pd.notna(backup_df), None)
+
+    text_columns = [
+        "id",
+        "name",
+        "url",
+        "start_at",
+        "end_at",
+        "description",
+        "timezone",
+        "pricing",
+        "city",
+        "topic_label",
+        "topic_color",
+    ]
+    for column in text_columns:
+        if column in backup_df.columns:
+            backup_df[column] = backup_df[column].apply(
+                lambda value: str(value) if value is not None and not isinstance(value, str) else value
+            )
+
     timestamp = int(datetime.now().timestamp())
     backup_name = f"events_backup_before_clustering_{timestamp}"
-    db.create_table(backup_name, data=events_df.to_dict("records"), mode="overwrite")
+    db.create_table(backup_name, data=backup_df.to_dict("records"), mode="overwrite")
     print(f"Created backup table: {backup_name}")
     return backup_name
+
+
+def get_table_names(db):
+    """Return table names across LanceDB versions where list_tables/table_names differ."""
+    tables = []
+
+    def _extract_names(raw):
+        # Common shape: ['events', 'city_summary']
+        if isinstance(raw, list) and all(isinstance(x, str) for x in raw):
+            return raw
+
+        # Shape: {'tables': [...], 'page_token': ...}
+        if isinstance(raw, dict):
+            if isinstance(raw.get("tables"), list):
+                return [str(x) for x in raw["tables"]]
+            return [str(x) for x in raw.keys()]
+
+        # Shape: [('tables', [...]), ('page_token', None)]
+        if isinstance(raw, list) and raw and all(isinstance(x, tuple) and len(x) == 2 for x in raw):
+            as_dict = dict(raw)
+            if isinstance(as_dict.get("tables"), list):
+                return [str(x) for x in as_dict["tables"]]
+
+        return None
+
+    if hasattr(db, "list_tables"):
+        try:
+            raw_tables = db.list_tables()
+            extracted = _extract_names(raw_tables)
+            tables = extracted if extracted is not None else (raw_tables or [])
+        except Exception:
+            tables = []
+
+    if (not tables) and hasattr(db, "table_names"):
+        try:
+            raw_tables = db.table_names()
+            extracted = _extract_names(raw_tables)
+            tables = extracted if extracted is not None else (raw_tables or [])
+        except Exception:
+            tables = []
+
+    normalized = []
+    for table in tables:
+        if isinstance(table, str):
+            normalized.append(table)
+        elif isinstance(table, dict) and isinstance(table.get("name"), str):
+            normalized.append(table["name"])
+        else:
+            normalized.append(str(table))
+
+    return normalized
 
 
 def cluster_event_topics(min_topic_size=8):
@@ -52,12 +135,23 @@ def cluster_event_topics(min_topic_size=8):
         return
 
     db = lancedb.connect(db_path)
-    if "events" not in db.list_tables():
-        print("events table not found")
+    try:
+        table = db.open_table("events")
+    except Exception as exc:
+        table_names = get_table_names(db)
+        print(f"events table not found. Available tables: {table_names}")
+        print(f"open_table('events') error: {exc}")
+        return
+    df = table.to_pandas()
+
+    # Safety gate: backup must succeed before any clustering work proceeds.
+    try:
+        backup_events_table(db, df)
+        print("Backup check succeeded.")
+    except Exception as exc:
+        print(f"Backup failed, aborting clustering: {exc}")
         return
 
-    table = db.open_table("events")
-    df = table.to_pandas()
     if df.empty:
         print("No events to cluster")
         return
@@ -81,6 +175,7 @@ def cluster_event_topics(min_topic_size=8):
         verbose=True,
     )
     topics, _ = topic_model.fit_transform(docs)
+    topics = assign_outliers_to_fallback(topics)
 
     unique_topics = sorted({topic for topic in topics if topic != -1})
     topic_color_map = {topic_id: PALETTE[i % len(PALETTE)] for i, topic_id in enumerate(unique_topics)}
@@ -95,8 +190,6 @@ def cluster_event_topics(min_topic_size=8):
     df["topic_id"] = topics
     df["topic_label"] = labels
     df["topic_color"] = colors
-
-    backup_events_table(db, table.to_pandas())
 
     db.create_table("events", data=df.to_dict("records"), mode="overwrite")
 
