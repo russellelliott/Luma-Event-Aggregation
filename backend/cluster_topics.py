@@ -55,6 +55,8 @@ CUSTOM_CLUSTER_STOP_WORDS = {
     "big", "you're", "please", "we're", "agree",
     "we'll", "jill", "what's", "director", "khosla", "he", "she", "they", "women", "woman",
     "tiat", "runway", "flybetter",
+    "fyi", "slack", "members", "jepa", "lps", "femigrants", "immigrants", "european",
+    "person", "east", "west", "north", "south",
 
     # 6. DOCUMENT META & GEOGRAPHY (Data artifact noise)
     "https", "com", "www", "io", "website", "post", "link", "information",
