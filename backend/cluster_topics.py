@@ -1,6 +1,8 @@
 import os
 import random
+import re
 from datetime import datetime
+from collections import Counter
 
 import lancedb
 import pandas as pd
@@ -37,6 +39,36 @@ def assign_outliers_to_fallback(topics):
     else:
         fallback_topic = 0
     return [fallback_topic if topic == -1 else topic for topic in topics]
+
+
+def tokenize_text(text):
+    return re.findall(r"[A-Za-z][A-Za-z0-9']*", (text or "").lower())
+
+
+def remove_high_frequency_stopwords(docs, frequency_threshold=0.001):
+    """
+    Remove words that appear in more than `frequency_threshold` of all corpus tokens.
+    frequency_threshold=0.001 corresponds to 0.1%.
+    """
+    tokenized_docs = [tokenize_text(doc) for doc in docs]
+    all_tokens = [token for doc_tokens in tokenized_docs for token in doc_tokens]
+
+    if not all_tokens:
+        return docs, set()
+
+    token_counts = Counter(all_tokens)
+    total_tokens = len(all_tokens)
+    dynamic_stopwords = {
+        token
+        for token, count in token_counts.items()
+        if (count / total_tokens) > frequency_threshold
+    }
+
+    filtered_docs = [
+        " ".join(token for token in doc_tokens if token not in dynamic_stopwords)
+        for doc_tokens in tokenized_docs
+    ]
+    return filtered_docs, dynamic_stopwords
 
 
 def _to_text_or_none(value):
@@ -257,6 +289,11 @@ def cluster_event_topics(min_topic_size=8):
         description = row.get("description") or ""
         docs.append(f"{name}\n\n{description}".strip())
 
+    clustering_docs, dynamic_stopwords = remove_high_frequency_stopwords(docs, frequency_threshold=0.001)
+    print(
+        f"Removed {len(dynamic_stopwords)} high-frequency stopwords (>0.1% corpus frequency) for clustering input."
+    )
+
     device = "mps" if torch.backends.mps.is_available() else "cpu"
     embedding_model = SentenceTransformer(
         "all-MiniLM-L6-v2",
@@ -269,7 +306,7 @@ def cluster_event_topics(min_topic_size=8):
         calculate_probabilities=False,
         verbose=True,
     )
-    topics, _ = topic_model.fit_transform(docs)
+    topics, _ = topic_model.fit_transform(clustering_docs)
     topics = assign_outliers_to_fallback(topics)
 
     unique_topics = sorted({topic for topic in topics if topic != -1})
