@@ -1,6 +1,7 @@
 import os
 import random
 import re
+import colorsys
 from datetime import datetime
 from collections import Counter
 
@@ -57,6 +58,9 @@ CUSTOM_CLUSTER_STOP_WORDS = {
     "tiat", "runway", "flybetter",
     "fyi", "slack", "members", "jepa", "lps", "femigrants", "immigrants", "european",
     "person", "east", "west", "north", "south",
+    "female", "immigrant", "wwdc", "swift", "meetup", "v11", "social", "connections",
+    "conversations", "content",
+    "group", "see", "humanx", "collective", "gathering",
 
     # 6. DOCUMENT META & GEOGRAPHY (Data artifact noise)
     "https", "com", "www", "io", "website", "post", "link", "information",
@@ -83,7 +87,11 @@ def build_topic_label(topic_model, topic_id):
 
 
 def random_hex_color():
-    return f"#{random.randint(0, 255):02X}{random.randint(0, 255):02X}{random.randint(0, 255):02X}"
+    hue = random.random()
+    saturation = random.uniform(0.55, 0.85)
+    lightness = random.uniform(0.20, 0.40)
+    red, green, blue = colorsys.hls_to_rgb(hue, lightness, saturation)
+    return f"#{int(red * 255):02X}{int(green * 255):02X}{int(blue * 255):02X}"
 
 
 def assign_outliers_to_fallback(topics):
