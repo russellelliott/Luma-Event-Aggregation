@@ -12,6 +12,56 @@ from sentence_transformers import SentenceTransformer
 import torch
 
 
+CUSTOM_CLUSTER_STOP_WORDS = {
+    # 1. TIME & DATE (Pure noise)
+    "pm", "am", "pst", "est", "pt", "april", "march", "june", "july", "may",
+    "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+    "day", "week", "evening", "night", "daily", "monthly", "year", "years", "time",
+    "th", "rd", "st", "nd", "today", "tomorrow", "afternoon", "morning", "date",
+    "schedule", "agenda", "minute", "minutes", "hour", "hours",
+
+    # 2. LOGISTICS & VENUE (Generic locations)
+    "registration", "registering", "rsvp", "floor", "floors", "room", "venue",
+    "location", "office", "offices", "street", "parking", "doors", "arrival",
+    "capacity", "spots", "tickets", "ticket", "staff", "id", "valid", "required",
+    "lounge", "house", "tower", "frontiertower", "village", "center", "hub",
+    "space", "spaces", "hall", "suite", "site", "area", "district", "city",
+
+    # 3. HOSPITALITY & GENERIC SOCIAL (Non-content noise)
+    "drinks", "dinner", "food", "coffee", "breakfast", "lunch", "refreshments",
+    "snacks", "bites", "cocktails", "wine", "pizza", "beverages", "alcohol", "meal",
+    "join", "us", "community", "welcome", "happy", "friends", "everyone", "folks",
+    "guest", "guests", "vibe", "vibes", "party", "reception", "hang", "mingle",
+    "mingling", "thank", "thanks", "curated", "intimate", "casual", "fun",
+
+    # 4. TECH & BUSINESS "FLUFF" (Vague buzzwords)
+    "tech", "technology", "technologies", "startup", "startups", "founders",
+    "founder", "founding", "ceo", "builders", "innovation", "innovators",
+    "leadership", "executive", "professional", "impact", "mission", "missiondriven",
+    "strategic", "strategy", "solutions", "platform", "platforms", "scale", "scaling",
+    "growth", "potential", "forward", "transforming", "transformation", "shaping",
+    "building", "build", "create", "creating", "vision", "visionary", "excellence",
+    "value", "values", "movement", "opportunity", "opportunities", "world", "global",
+    "modern", "future", "next", "advanced", "era", "ecosystem", "ecosystems",
+
+    # 5. VAGUE ACTION VERBS & ADJECTIVES (Fillers)
+    "exploring", "explore", "learn", "bringing", "happen", "making", "using",
+    "driven", "designed", "facilitated", "powered", "real", "one", "get", "up",
+    "co", "can", "all", "where", "across", "new", "together", "first", "most",
+    "just", "work", "apply", "share", "here", "out", "has", "why", "early",
+    "should", "like", "part", "over", "working", "need", "only", "when", "do",
+    "so", "want", "expect", "actually", "whether", "other", "before", "become",
+    "any", "each", "after", "than", "beyond", "ready", "must", "simply",
+
+    # 6. DOCUMENT META & GEOGRAPHY (Data artifact noise)
+    "https", "com", "www", "io", "website", "post", "link", "information",
+    "details", "intro", "introduction", "overview", "summary", "slides", "q", "a",
+    "email", "linkedin", "instagram", "twitter", "follow", "visit", "check",
+    "san", "francisco", "sf", "bay", "california", "valley", "silicon", "oakland",
+    "palo", "alto", "menlo", "ca", "usa", "berkeley", "stanford",
+}
+
+
 def get_db_path():
     home_dir = os.path.expanduser("~")
     return os.path.join(home_dir, ".luma-event-aggregation", "data", "events.db")
@@ -62,7 +112,7 @@ def tokenize_text(text):
     return re.findall(r"[A-Za-z][A-Za-z0-9']*", (text or "").lower())
 
 
-def remove_high_frequency_stopwords(docs, frequency_threshold=0.001):
+def remove_high_frequency_stopwords(docs, frequency_threshold=0.001, base_stopwords=None):
     """
     Remove words that appear in more than `frequency_threshold` of all corpus tokens.
     frequency_threshold=0.001 corresponds to 0.1%.
@@ -80,9 +130,10 @@ def remove_high_frequency_stopwords(docs, frequency_threshold=0.001):
         for token, count in token_counts.items()
         if (count / total_tokens) > frequency_threshold
     }
+    combined_stopwords = dynamic_stopwords.union(base_stopwords or set())
 
     filtered_docs = [
-        " ".join(token for token in doc_tokens if token not in dynamic_stopwords)
+        " ".join(token for token in doc_tokens if token not in combined_stopwords)
         for doc_tokens in tokenized_docs
     ]
     return filtered_docs, dynamic_stopwords
@@ -390,9 +441,15 @@ def cluster_event_topics(min_topic_size=8):
         description = row.get("description") or ""
         docs.append(f"{name}\n\n{description}".strip())
 
-    clustering_docs, dynamic_stopwords = remove_high_frequency_stopwords(docs, frequency_threshold=0.001)
+    clustering_docs, dynamic_stopwords = remove_high_frequency_stopwords(
+        docs,
+        frequency_threshold=0.001,
+        base_stopwords=CUSTOM_CLUSTER_STOP_WORDS,
+    )
     print(
-        f"Removed {len(dynamic_stopwords)} high-frequency stopwords (>0.1% corpus frequency) for clustering input."
+        "Removed "
+        f"{len(dynamic_stopwords)} high-frequency stopwords (>0.1% corpus frequency) "
+        f"plus {len(CUSTOM_CLUSTER_STOP_WORDS)} custom stop words for clustering input."
     )
 
     cluster_id_counter = [0]
