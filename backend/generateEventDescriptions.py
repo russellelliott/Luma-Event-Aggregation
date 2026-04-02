@@ -195,13 +195,28 @@ def generate_descriptions_for_all_events(events, delay=1.0, db_path=None):
             skipped_count += 1
             continue
 
-        if event_entry.get("description"):
-            print(f"[{i+1}/{len(events)}] Skipping: {event_name} (already has description)")
+        # Check if event has ALL required fields: description, city, AND coordinates
+        has_description = bool(event_entry.get("description"))
+        has_city = bool(event_entry.get("city"))
+        has_coordinates = (
+            event_entry.get("coordinates", {}).get("latitude") is not None
+            and event_entry.get("coordinates", {}).get("longitude") is not None
+        )
+
+        # Skip only if ALL fields are present
+        if has_description and has_city and has_coordinates:
+            print(f"[{i+1}/{len(events)}] Skipping: {event_name} (complete: description, city, coordinates)")
             skipped_count += 1
             continue
 
         try:
             print(f"[{i+1}/{len(events)}] Processing: {event_name}")
+            if not has_description:
+                print(f"  - Missing: description")
+            if not has_city:
+                print(f"  - Missing: city")
+            if not has_coordinates:
+                print(f"  - Missing: coordinates")
 
             event_info = get_luma_event_info(str(event_url).strip(), delay=delay)
             if "error" in event_info:
@@ -210,25 +225,30 @@ def generate_descriptions_for_all_events(events, delay=1.0, db_path=None):
                 error_count += 1
                 continue
 
-            has_description = False
-            has_pricing = False
+            updated_count = 0
 
-            if "description" in event_info and event_info["description"]:
+            if "description" in event_info and event_info["description"] and not has_description:
                 event_entry["description"] = event_info["description"]
-                has_description = True
+                updated_count += 1
                 print(f"  ✓ Description added ({len(event_info['description'])} chars)")
-            else:
-                print(f"  ⚠️  No description in fetched data")
+
+            if "latitude" in event_info and "longitude" in event_info and not has_coordinates:
+                lat = event_info.get("latitude")
+                lng = event_info.get("longitude")
+                if lat is not None and lng is not None:
+                    event_entry["coordinates"] = {"latitude": lat, "longitude": lng}
+                    updated_count += 1
+                    print(f"  ✓ Coordinates added ({lat}, {lng})")
 
             if "pricing" in event_info and event_info["pricing"]:
                 event_entry["pricing"] = event_info["pricing"]
-                has_pricing = True
+                updated_count += 1
                 print(f"  ✓ Pricing added")
 
-            if has_description or has_pricing:
+            if updated_count > 0:
                 processed_count += 1
             else:
-                print(f"  ⚠️  Neither description nor pricing was found")
+                print(f"  ⚠️  No new data was available")
                 error_count += 1
         except Exception as exc:
             event_entry["fetch_error"] = str(exc)
