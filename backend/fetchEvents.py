@@ -278,6 +278,33 @@ def canonicalize_event_url(url):
     return canonical
 
 
+def extract_event_slug(url):
+    """Extract a comparable Luma slug from either a slug or full Luma URL."""
+    canonical = canonicalize_event_url(url)
+    if not canonical:
+        return None
+
+    try:
+        parsed = urlparse(canonical)
+    except Exception:
+        return None
+
+    host = (parsed.netloc or "").lower()
+    path = (parsed.path or "").strip("/")
+
+    if host == "luma.com" and path:
+        # Keep only the first path segment as event slug.
+        return path.split("/")[0].strip().lower()
+
+    # If canonicalization produced a URL-like string but parsing missed host/path,
+    # treat the raw text as a potential slug.
+    text = str(url).strip().strip("/")
+    if text and "/" not in text and " " not in text:
+        return text.lower()
+
+    return None
+
+
 def deduplicate_events(events):
     """Remove duplicate events based on event.api_id (the unique event identifier).
     
@@ -702,11 +729,13 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
     # expensive processing (enrichment, filtering, summary generation).
     existing_events = []
     existing_urls = set()
+    existing_slugs = set()
 
     if "events" in db.list_tables():
         try:
             tbl = db.open_table("events")
-            existing_events = tbl.to_pandas().to_dict(orient='records')
+            existing_df = tbl.to_pandas()
+            existing_events = existing_df.to_dict(orient='records')
 
             # Clean NaNs from existing events (Pandas introduces NaNs)
             def clean_nans(obj):
@@ -721,13 +750,30 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
             existing_events = [clean_nans(e) for e in existing_events]
             existing_events = [normalize_luma_event(e) for e in existing_events]
 
+            # Build existing URL and slug lookup sets from DB URL values.
+            if "url" in existing_df.columns:
+                for raw_url in existing_df["url"].tolist():
+                    canonical_url = canonicalize_event_url(raw_url)
+                    if canonical_url:
+                        existing_urls.add(canonical_url)
+
+                    slug = extract_event_slug(raw_url)
+                    if slug:
+                        existing_slugs.add(slug)
+
+            # Also build lookup sets from normalized existing events as fallback.
             for event in existing_events:
                 canonical_url = canonicalize_event_url(get_event_url(event))
                 if canonical_url:
                     existing_urls.add(canonical_url)
 
+                slug = extract_event_slug(get_event_url(event))
+                if slug:
+                    existing_slugs.add(slug)
+
             print(f"✓ Loaded {len(existing_events)} existing events from DB")
             print(f"✓ Loaded {len(existing_urls)} canonical existing URLs")
+            print(f"✓ Loaded {len(existing_slugs)} existing slugs from DB URLs")
         except Exception as e:
             print(f"⚠️ Could not read existing data: {e}")
 
@@ -761,22 +807,34 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
         print(f"\n✓ Total events collected from all sources: {len(all_events)}")
         all_events = [normalize_luma_event(event) for event in all_events]
 
-        # Skip events whose canonical URL is already present in DB.
+        # Skip events whose slug/URL is already present in DB.
         preexisting_skip_count = 0
         unseen_events = []
+        new_slugs_to_process = []
+        new_slug_set = set()
 
         for event in all_events:
+            event_slug = extract_event_slug(get_event_url(event))
             canonical_url = canonicalize_event_url(get_event_url(event))
-            if canonical_url and canonical_url in existing_urls:
+
+            if (event_slug and event_slug in existing_slugs) or (
+                canonical_url and canonical_url in existing_urls
+            ):
                 preexisting_skip_count += 1
                 continue
+
+            if event_slug and event_slug not in new_slug_set:
+                new_slug_set.add(event_slug)
+                new_slugs_to_process.append(event_slug)
+
             unseen_events.append(event)
 
         all_events = unseen_events
         print(
-            f"✓ Skipped {preexisting_skip_count} events already present in DB by URL "
+            f"✓ Skipped {preexisting_skip_count} events already present in DB by slug/URL "
             f"before processing"
         )
+        print(f"✓ New slugs queued for processing: {len(new_slugs_to_process)}")
         
         # Remove duplicate events based on api_id
         print("🔄 Removing duplicate events...")
@@ -867,8 +925,11 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
         skipped_count = 0
         
         for event in all_events:
+            event_slug = extract_event_slug(get_event_url(event))
             canonical_url = canonicalize_event_url(get_event_url(event))
-            if canonical_url and canonical_url in existing_urls:
+            if (event_slug and event_slug in existing_slugs) or (
+                canonical_url and canonical_url in existing_urls
+            ):
                 skipped_count += 1
                 continue
             new_events.append(event)
@@ -876,7 +937,7 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
         total_skipped_existing = preexisting_skip_count + skipped_count
         print(
             f"✓ Found {len(new_events)} new events "
-            f"(skipped {total_skipped_existing} existing by URL)"
+            f"(skipped {total_skipped_existing} existing by slug/URL)"
         )
 
         # Initialize fields for NEW events only
@@ -904,7 +965,7 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
         # Save to LanceDB
         print("💾 Saving events to LanceDB...")
         try:
-            if "events" in db.table_names():
+            if "events" in db.list_tables():
                 print("  Overwriting existing 'events' table with updated list...")
                 db.drop_table("events")
             
@@ -923,7 +984,7 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
             for city, details in city_summary.items()
         ]
         
-        if "city_summary" in db.table_names():
+        if "city_summary" in db.list_tables():
             db.drop_table("city_summary")
 
         if city_summary_data:
