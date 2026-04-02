@@ -58,7 +58,7 @@ CUSTOM_CLUSTER_STOP_WORDS = {
     "details", "intro", "introduction", "overview", "summary", "slides", "q", "a",
     "email", "linkedin", "instagram", "twitter", "follow", "visit", "check",
     "san", "francisco", "sf", "bay", "california", "valley", "silicon", "oakland",
-    "palo", "alto", "menlo", "ca", "usa", "berkeley", "stanford",
+    "palo", "alto", "menlo", "ca", "usa", "berkeley", "stanford", "leopard",
 }
 
 
