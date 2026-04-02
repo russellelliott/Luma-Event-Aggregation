@@ -52,6 +52,7 @@ CUSTOM_CLUSTER_STOP_WORDS = {
     "should", "like", "part", "over", "working", "need", "only", "when", "do",
     "so", "want", "expect", "actually", "whether", "other", "before", "become",
     "any", "each", "after", "than", "beyond", "ready", "must", "simply",
+    "big", "you're", "please", "we're", "agree",
 
     # 6. DOCUMENT META & GEOGRAPHY (Data artifact noise)
     "https", "com", "www", "io", "website", "post", "link", "information",
