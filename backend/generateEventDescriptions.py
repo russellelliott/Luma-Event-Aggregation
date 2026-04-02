@@ -257,27 +257,32 @@ def generate_descriptions_for_all_events(events, delay=1.0, db_path=None):
 
             updated_count = 0
 
-            if "description" in event_info and event_info["description"] and not has_description:
+            if "description" in event_info and event_info["description"]:
                 event_entry["description"] = event_info["description"]
                 updated_count += 1
-                print(f"  ✓ Description added ({len(event_info['description'])} chars)")
+                print(f"  ✓ Description written ({len(event_info['description'])} chars)")
+            else:
+                print("  ⚠️  Description missing in response")
 
-            if "latitude" in event_info and "longitude" in event_info and not has_coordinates:
+            if "latitude" in event_info and "longitude" in event_info:
                 lat = event_info.get("latitude")
                 lng = event_info.get("longitude")
                 if lat is not None and lng is not None:
                     event_entry["coordinates"] = {"latitude": lat, "longitude": lng}
                     updated_count += 1
-                    print(f"  ✓ Coordinates added ({lat}, {lng})")
-
-            if not has_city:
-                extracted_city = _extract_city_from_event_info(event_info)
-                if extracted_city:
-                    event_entry["city"] = extracted_city
-                    updated_count += 1
-                    print(f"  ✓ City added ({extracted_city})")
+                    print(f"  ✓ Coordinates written ({lat}, {lng})")
                 else:
-                    print("  ⚠️  No city extracted from response")
+                    print("  ⚠️  Coordinates missing in response")
+            else:
+                print("  ⚠️  Coordinates keys missing in response")
+
+            extracted_city = _extract_city_from_event_info(event_info)
+            if extracted_city:
+                event_entry["city"] = extracted_city
+                updated_count += 1
+                print(f"  ✓ City written ({extracted_city})")
+            else:
+                print("  ⚠️  No city extracted from response")
 
             if "pricing" in event_info and event_info["pricing"]:
                 event_entry["pricing"] = event_info["pricing"]
@@ -285,6 +290,8 @@ def generate_descriptions_for_all_events(events, delay=1.0, db_path=None):
                 print(f"  ✓ Pricing added")
 
             if updated_count > 0:
+                save_events_to_lancedb(events, db_path=db_path)
+                print("  💾 Event updates written to LanceDB")
                 processed_count += 1
             else:
                 print(f"  ⚠️  No new data was available")
@@ -295,9 +302,9 @@ def generate_descriptions_for_all_events(events, delay=1.0, db_path=None):
             error_count += 1
 
     print(f"\n📊 Summary: {processed_count} processed, {skipped_count} skipped, {error_count} errors")
-    print(f"💾 Saving all {len(events)} events to database...")
+    print(f"💾 Performing final safety save for all {len(events)} events...")
     save_events_to_lancedb(events, db_path=db_path)
-    print("✓ All events saved to LanceDB")
+    print("✓ Final save completed")
 
     return events
 

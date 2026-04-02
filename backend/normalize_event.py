@@ -36,6 +36,7 @@ def _extract_city_from_address(address):
 def normalize_luma_event(raw):
     """Normalize a raw Luma event payload into the flat project schema."""
     base = raw.get("event") if isinstance(raw.get("event"), dict) else raw
+    raw_coordinates = raw.get("coordinates") if isinstance(raw.get("coordinates"), dict) else {}
     geo = base.get("geo_address_info") if isinstance(base.get("geo_address_info"), dict) else {}
     cal = raw.get("calendar") if isinstance(raw.get("calendar"), dict) else {}
     loc = raw.get("location") if isinstance(raw.get("location"), dict) else {}
@@ -45,7 +46,9 @@ def normalize_luma_event(raw):
     location_name = base.get("location_name") or raw.get("location_name")
 
     city = (
-        geo.get("city_state")
+        raw.get("city")
+        or base.get("city")
+        or geo.get("city_state")
         or geo.get("city")
         or _extract_city_from_address(address)
         or (
@@ -56,13 +59,15 @@ def normalize_luma_event(raw):
     )
 
     latitude = (
-        coord.get("latitude")
+        raw_coordinates.get("latitude")
+        or coord.get("latitude")
         or loc.get("latitude")
         or loc_geo.get("latitude")
         or geo.get("latitude")
     )
     longitude = (
-        coord.get("longitude")
+        raw_coordinates.get("longitude")
+        or coord.get("longitude")
         or loc.get("longitude")
         or loc_geo.get("longitude")
         or geo.get("longitude")
