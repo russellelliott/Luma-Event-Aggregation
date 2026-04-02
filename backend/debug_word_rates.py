@@ -6,6 +6,9 @@ import lancedb
 import pandas as pd
 
 
+OUTPUT_FILE = os.path.join(os.path.dirname(__file__), "common_word_rates.txt")
+
+
 def get_db_path():
     home_dir = os.path.expanduser("~")
     return os.path.join(home_dir, ".luma-event-aggregation", "data", "events.db")
@@ -49,18 +52,24 @@ def main():
 
     token_counts = Counter(all_tokens)
     total_tokens = len(all_tokens)
-    repeated_token_counts = {word: count for word, count in token_counts.items() if count >= 50}
+    repeated_token_counts = {word: count for word, count in token_counts.items() if count >= 10}
 
-    print(f"Total documents: {len(docs)}")
-    print(f"Total tokens: {total_tokens}")
-    print(f"Words appearing at least 50 times: {len(repeated_token_counts)}")
-    print()
-    print(f"{'Word':<30} | {'Count':<10} | {'Percent':<10}")
-    print("-" * 60)
+    lines = []
+    lines.append(f"Total documents: {len(docs)}")
+    lines.append(f"Total tokens: {total_tokens}")
+    lines.append(f"Words appearing at least 10 times: {len(repeated_token_counts)}")
+    lines.append("")
+    lines.append(f"{'Word':<30} | {'Count':<10} | {'Percent':<10}")
+    lines.append("-" * 60)
 
     for word, count in sorted(repeated_token_counts.items(), key=lambda item: item[1], reverse=True):
         percent = (count / total_tokens) * 100
-        print(f"{word:<30} | {count:<10} | {percent:>8.4f}%")
+        lines.append(f"{word:<30} | {count:<10} | {percent:>8.4f}%")
+
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as file_handle:
+        file_handle.write("\n".join(lines) + "\n")
+
+    print(f"Wrote common-word report to {OUTPUT_FILE}")
 
 
 if __name__ == "__main__":
