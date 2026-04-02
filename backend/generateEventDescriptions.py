@@ -181,6 +181,10 @@ def save_events_to_lancedb(events, db_path=None):
 def generate_descriptions_for_all_events(events, delay=1.0, db_path=None):
     print(f"Processing {len(events)} events sequentially with {delay}s delay between requests...\n")
 
+    processed_count = 0
+    skipped_count = 0
+    error_count = 0
+
     for i, event_entry in enumerate(events):
         event_url = event_entry.get("url")
         event_name = event_entry.get("name", "Unknown Event")
@@ -188,38 +192,53 @@ def generate_descriptions_for_all_events(events, delay=1.0, db_path=None):
         if not event_url:
             print(f"[{i+1}/{len(events)}] Skipping: {event_name} (no URL found)")
             event_entry["fetch_error"] = "No URL found"
+            skipped_count += 1
             continue
 
         if event_entry.get("description"):
             print(f"[{i+1}/{len(events)}] Skipping: {event_name} (already has description)")
+            skipped_count += 1
             continue
 
         try:
             print(f"[{i+1}/{len(events)}] Processing: {event_name}")
-            print(f"  URL: {event_url}")
-            print("  Event data:")
-            print(json.dumps(normalize_event_for_storage(event_entry), indent=2, default=str))
 
             event_info = get_luma_event_info(str(event_url).strip(), delay=delay)
             if "error" in event_info:
-                print(f"  ⚠️  Error: {event_info['error']}")
+                print(f"  ⚠️  Error fetching: {event_info['error']}")
                 event_entry["fetch_error"] = event_info["error"]
+                error_count += 1
                 continue
 
-            print("  Fetched event info:")
-            print(json.dumps(event_info, indent=2, default=str))
+            has_description = False
+            has_pricing = False
 
-            if "description" in event_info:
+            if "description" in event_info and event_info["description"]:
                 event_entry["description"] = event_info["description"]
-            if "pricing" in event_info:
-                event_entry["pricing"] = event_info["pricing"]
+                has_description = True
+                print(f"  ✓ Description added ({len(event_info['description'])} chars)")
+            else:
+                print(f"  ⚠️  No description in fetched data")
 
-            save_events_to_lancedb(events, db_path=db_path)
-            print("  ✓ Description and pricing added and persisted")
+            if "pricing" in event_info and event_info["pricing"]:
+                event_entry["pricing"] = event_info["pricing"]
+                has_pricing = True
+                print(f"  ✓ Pricing added")
+
+            if has_description or has_pricing:
+                processed_count += 1
+            else:
+                print(f"  ⚠️  Neither description nor pricing was found")
+                error_count += 1
         except Exception as exc:
             event_entry["fetch_error"] = str(exc)
             print(f"  ⚠️  Failed to process {event_name}: {exc}")
-            traceback.print_exc()
+            error_count += 1
+
+    print(f"\n📊 Summary: {processed_count} processed, {skipped_count} skipped, {error_count} errors")
+    print(f"💾 Saving all {len(events)} events to database...")
+    save_events_to_lancedb(events, db_path=db_path)
+    print("✓ All events saved to LanceDB")
 
     return events
 

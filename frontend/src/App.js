@@ -138,26 +138,26 @@ function App() {
 
   // Filter events client-side
   useEffect(() => {
-    if (cities.length === 0 || allEvents.length === 0) {
+    if (allEvents.length === 0) {
       setFilteredEvents([]);
       return;
     }
 
-    // Get max distance from current slider position
-    const cityIndex = Math.min(selectedCityIndex, cities.length - 1);
-    const citiesUpToSlider = cities.slice(0, cityIndex + 1);
-    const maxDistance = Math.max(...citiesUpToSlider.map(c => c.distance_miles || 0));
+    // Get max distance from current slider position (if cities exist)
+    let maxDistance = Infinity;
+    if (cities.length > 0) {
+      const cityIndex = Math.min(selectedCityIndex, cities.length - 1);
+      const citiesUpToSlider = cities.slice(0, cityIndex + 1);
+      maxDistance = Math.max(...citiesUpToSlider.map(c => c.distance_miles || 0));
+    }
 
     const filtered = allEvents.filter(event => {
-      // 1. Distance Filter
+      // 1. Distance Filter (optional - only apply if cities exist)
       const distanceInfo = event.distance_info;
-      let validDistance = false;
-      if (distanceInfo && typeof distanceInfo.distance_miles === 'number') {
-        validDistance = distanceInfo.distance_miles <= maxDistance;
-      } else {
-        validDistance = false;
+      if (cities.length > 0 && distanceInfo && typeof distanceInfo.distance_miles === 'number') {
+        if (distanceInfo.distance_miles > maxDistance) return false;
       }
-      if (!validDistance) return false;
+      // If no cities or no distance_info, include the event anyway
 
       // 2. Paid/Free Filter
       // If showPaid is false, ONLY show Free events
@@ -361,7 +361,7 @@ function App() {
                 <ClassificationFilter 
                   selectedFilters={selectedFilters}
                   onFilterChange={handleFilterChange}
-                  topicOptions={topicOptions}
+                  topicOptions={topicOptions.filter(t => t.label && t.label !== 'nan' && t.label !== 'none')}
                 />
                 
                 <MatchSlider 

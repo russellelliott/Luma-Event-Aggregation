@@ -271,8 +271,8 @@ const SingleEventCardContent = ({ item, onBookmark, onViewEvent, isSearching }) 
     
     const location = getLocation(event);
     const priceLabel = getPriceLabel(event.pricing);
-    const topicLabel = event.topic_label || 'Unclustered';
-    const topicColor = event.topic_color || '#64748B';
+    const topicLabel = (event.topic_label && event.topic_label !== 'nan' && event.topic_label !== 'nan' && event.topic_label !== 'none') ? event.topic_label : 'Unclustered';
+    const topicColor = (event.topic_color && event.topic_color !== 'nan' && event.topic_color !== 'none') ? event.topic_color : '#64748B';
 
     // Handle URL: if it doesn't start with http, assume it's a Luma slug
     const rawUrl = event.url || '';

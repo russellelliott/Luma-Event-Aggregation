@@ -47,8 +47,12 @@ def clean_nans(data):
         return [clean_nans(item) for item in data]
     if isinstance(data, dict):
         return {k: clean_nans(v) for k, v in data.items()}
-    if isinstance(data, float) and math.isnan(data):
-        return None
+    if isinstance(data, float):
+        if math.isnan(data):
+            return None
+    if isinstance(data, str):
+        if data.lower() in ('nan', 'none', ''):
+            return None
     return data
 
 

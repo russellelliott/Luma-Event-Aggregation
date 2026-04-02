@@ -112,7 +112,9 @@ def get_luma_event_info(slug, delay=0.5, timeout=10, max_retries=3):
                         
                         return info
                         
-                except (json.JSONDecodeError, TypeError):
+                except (json.JSONDecodeError, TypeError) as e:
+                    continue
+                except Exception as e:
                     continue
             
             return {'error': 'No Event schema found in page data'}

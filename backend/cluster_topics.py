@@ -43,7 +43,7 @@ def cluster_event_topics(min_topic_size=8):
         return
 
     db = lancedb.connect(db_path)
-    if "events" not in db.table_names():
+    if "events" not in db.list_tables():
         print("events table not found")
         return
 
@@ -61,8 +61,7 @@ def cluster_event_topics(min_topic_size=8):
 
     device = "mps" if torch.backends.mps.is_available() else "cpu"
     embedding_model = SentenceTransformer(
-        "jinaai/jina-embeddings-v2-base-en",
-        trust_remote_code=True,
+        "all-MiniLM-L6-v2",
         device=device,
     )
 
