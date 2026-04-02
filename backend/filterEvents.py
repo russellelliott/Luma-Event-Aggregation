@@ -4,16 +4,11 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import lancedb
-import numpy as np
 
 from normalize_event import normalize_luma_event
 
 
 def convert_to_serializable(obj):
-    if isinstance(obj, np.ndarray):
-        return convert_to_serializable(obj.tolist())
-    if isinstance(obj, (np.integer, np.floating)):
-        return obj.item()
     if isinstance(obj, dict):
         return {k: convert_to_serializable(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):
@@ -47,33 +42,8 @@ def load_events(db_path=None):
     raw_events = table.to_pandas().to_dict("records")
     events = [normalize_luma_event(event) for event in raw_events]
 
-    try:
-        bookmarked_vectors = [
-            e.get("vector")
-            for e in events
-            if e.get("bookmarked") and isinstance(e.get("vector"), (list, np.ndarray))
-        ]
-        if bookmarked_vectors:
-            bookmark_matrix = np.array(bookmarked_vectors)
-            mean_vector = np.mean(bookmark_matrix, axis=0)
-            norm_mean = np.linalg.norm(mean_vector)
-            if norm_mean > 0:
-                mean_vector = mean_vector / norm_mean
-                for e in events:
-                    vec = e.get("vector")
-                    if isinstance(vec, (list, np.ndarray)):
-                        vec_np = np.array(vec)
-                        norm_vec = np.linalg.norm(vec_np)
-                        e["cosine_distance"] = float(1 - np.dot(vec_np / norm_vec, mean_vector)) if norm_vec > 0 else None
-                    else:
-                        e["cosine_distance"] = None
-        else:
-            for e in events:
-                e["cosine_distance"] = None
-    except Exception as exc:
-        print(f"Warning: Failed to calculate embeddings distance: {exc}")
-        for e in events:
-            e.setdefault("cosine_distance", None)
+    for e in events:
+        e.setdefault("cosine_distance", None)
 
     print(f"Loaded {len(events)} events from LanceDB")
     return events
@@ -165,36 +135,8 @@ def filter_by_future(events, include_past, pacific_tz):
 
 
 def update_cosine_distances(events):
-    try:
-        bookmarked_vectors = [
-            e.get("vector")
-            for e in events
-            if e.get("bookmarked") is True and isinstance(e.get("vector"), (list, np.ndarray))
-        ]
-        if not bookmarked_vectors:
-            for e in events:
-                e["cosine_distance"] = None
-            return
-
-        bookmark_matrix = np.array(bookmarked_vectors)
-        mean_vector = np.mean(bookmark_matrix, axis=0)
-        norm_mean = np.linalg.norm(mean_vector)
-        if norm_mean == 0:
-            for e in events:
-                e["cosine_distance"] = None
-            return
-
-        mean_vector_normalized = mean_vector / norm_mean
-        for e in events:
-            vec = e.get("vector")
-            if isinstance(vec, (list, np.ndarray)):
-                vec_np = np.array(vec)
-                norm_vec = np.linalg.norm(vec_np)
-                e["cosine_distance"] = float(1 - np.dot(vec_np / norm_vec, mean_vector_normalized)) if norm_vec > 0 else None
-            else:
-                e["cosine_distance"] = None
-    except Exception as exc:
-        print(f"Error updating cosine distances: {exc}")
+    for e in events:
+        e["cosine_distance"] = None
 
 
 def apply_filters(

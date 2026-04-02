@@ -1,66 +1,40 @@
-from sentence_transformers import SentenceTransformer
-import numpy as np
-import os
-import torch
+from difflib import SequenceMatcher
 
-# Global model instance
-_model = None
 
-def get_model():
-    global _model
-    if _model is None:
-        try:
-            print("Loading SentenceTransformer model for search...")
-            device = "mps" if torch.backends.mps.is_available() else "cpu"
-            print(f"Using device: {device}")
-            _model = SentenceTransformer(
-                'jinaai/jina-embeddings-v2-base-en',
-                trust_remote_code=True,
-                device=device
-            )
-        except Exception as e:
-            print(f"Error loading model: {e}")
-            return None
-    return _model
+def _event_search_text(event):
+    parts = [
+        event.get("name") or "",
+        event.get("description") or "",
+        event.get("city") or "",
+        event.get("topic_label") or "",
+    ]
+    return " ".join(part for part in parts if part).strip().lower()
 
 def search_events(query, events):
     """
-    Search events by query string.
-    
+    Search events by query string using text similarity.
+
     Args:
         query (str): The search query.
-        events (list): List of event dictionaries (must contain 'vector' field).
-        
+        events (list): List of event dictionaries.
+
     Returns:
-        list: events with updated 'cosine_distance' based on query.
+        list: events with updated 'cosine_distance' based on textual similarity.
     """
-    model = get_model()
-    if not model or not query:
+    if not query:
         return events
-        
+
     try:
-        query_vector = model.encode(query)
-        
-        # Calculate distance for all events
+        normalized_query = query.strip().lower()
         for e in events:
-            # Handle nested structure if vector is inside event or top level
-            # Based on add_embeddings.py, 'vector' is added to the row, so it should be at top level
-            vec = e.get('vector')
-            
-            if vec is not None and isinstance(vec, (list, np.ndarray)):
-                vec_np = np.array(vec)
-                norm_vec = np.linalg.norm(vec_np)
-                norm_query = np.linalg.norm(query_vector)
-                
-                if norm_vec > 0 and norm_query > 0:
-                    cosine_sim = np.dot(vec_np / norm_vec, query_vector / norm_query)
-                    # Distance = 1 - Similarity
-                    e['cosine_distance'] = float(1 - cosine_sim)
-                else:
-                    e['cosine_distance'] = None
-            else:
-                e['cosine_distance'] = None
-                
+            search_text = _event_search_text(e)
+            if not search_text:
+                e["cosine_distance"] = None
+                continue
+
+            ratio = SequenceMatcher(None, normalized_query, search_text).ratio()
+            e["cosine_distance"] = float(1 - ratio)
+
         return events
     except Exception as e:
         print(f"Error during search: {e}")

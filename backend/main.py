@@ -33,7 +33,7 @@ try:
     db_path = os.path.join(home_dir, ".luma-event-aggregation", "data", "events.db")
     db = lancedb.connect(db_path)
     CITY_SUMMARY_DF = None
-    if "city_summary" in db.table_names():
+    if "city_summary" in db.list_tables():
         CITY_SUMMARY_DF = db.open_table("city_summary").to_pandas()
     print("Data loaded successfully.")
 except Exception as exc:

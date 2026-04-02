@@ -38,8 +38,6 @@ import requests
 import googlemaps
 from dotenv import load_dotenv
 import lancedb
-from sentence_transformers import SentenceTransformer
-import torch
 import pyarrow as pa
 from normalize_event import normalize_luma_event
 
@@ -283,7 +281,43 @@ def get_event_coordinates(event_data):
     Returns (lat, lon) or (None, None).
     """
     coords = event_data.get("coordinates") if isinstance(event_data.get("coordinates"), dict) else {}
-    return coords.get("latitude"), coords.get("longitude")
+    coordinate = event_data.get("coordinate") if isinstance(event_data.get("coordinate"), dict) else {}
+    location = event_data.get("location") if isinstance(event_data.get("location"), dict) else {}
+    location_geo = location.get("geo") if isinstance(location.get("geo"), dict) else {}
+    geo_address_info = event_data.get("geo_address_info") if isinstance(event_data.get("geo_address_info"), dict) else {}
+    nested_event = event_data.get("event") if isinstance(event_data.get("event"), dict) else {}
+
+    latitude = (
+        coords.get("latitude")
+        or coordinate.get("latitude")
+        or location.get("latitude")
+        or location_geo.get("latitude")
+        or geo_address_info.get("latitude")
+        or nested_event.get("latitude")
+    )
+    longitude = (
+        coords.get("longitude")
+        or coordinate.get("longitude")
+        or location.get("longitude")
+        or location_geo.get("longitude")
+        or geo_address_info.get("longitude")
+        or nested_event.get("longitude")
+    )
+    return latitude, longitude
+
+
+def _extract_city_from_address(address):
+    if not isinstance(address, dict):
+        return None
+
+    city = address.get("addressLocality") or address.get("locality") or address.get("city")
+    region = address.get("addressRegion") or address.get("region") or address.get("state")
+
+    if city and region:
+        return f"{city}, {region}"
+    if city:
+        return city
+    return None
 
 
 def extract_city(item, gmaps_client=None):
@@ -296,7 +330,32 @@ def extract_city(item, gmaps_client=None):
     Returns:
         City string in "City, State" format, or "Unknown" if not found
     """
-    city = item.get("city")
+    nested_event = item.get("event") if isinstance(item.get("event"), dict) else {}
+    geo_address_info = item.get("geo_address_info") if isinstance(item.get("geo_address_info"), dict) else {}
+    calendar = item.get("calendar") if isinstance(item.get("calendar"), dict) else {}
+    address = item.get("address") if isinstance(item.get("address"), dict) else {}
+    location = item.get("location") if isinstance(item.get("location"), dict) else {}
+    location_geo = location.get("geo") if isinstance(location.get("geo"), dict) else {}
+    location_name = item.get("location_name") or nested_event.get("location_name")
+
+    city = (
+        item.get("city")
+        or geo_address_info.get("city_state")
+        or geo_address_info.get("city")
+        or nested_event.get("city")
+        or nested_event.get("city_state")
+        or _extract_city_from_address(address)
+        or _extract_city_from_address(location)
+        or _extract_city_from_address(location_geo)
+        or _extract_city_from_address(nested_event.get("address") if isinstance(nested_event.get("address"), dict) else {})
+    )
+
+    if not city and calendar.get("geo_city"):
+        region = calendar.get("geo_region_abbrev") or calendar.get("geo_region")
+        city = f"{calendar.get('geo_city')}, {region}" if region else calendar.get("geo_city")
+
+    if not city and location_name and location_name not in {"Register to See Address", "Online"}:
+        city = location_name
     
     vague_cities = ["California", "United States", "USA", "Register to See Address"]
 
@@ -711,7 +770,7 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
         existing_events = []
         existing_urls = set()
         
-        if "events" in db.table_names():
+        if "events" in db.list_tables():
             try:
                 tbl = db.open_table("events")
                 # Load all existing events
@@ -756,39 +815,9 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
         # Initialize fields for NEW events only
         print("📝 Initializing fields for new events...")
 
-        # Initialize model if we have new events
-        model = None
-        if new_events:
-            print("🧠 Loading model for embeddings...")
-            try:
-                device = "mps" if torch.backends.mps.is_available() else "cpu"
-                print(f"Using device: {device}")
-                model = SentenceTransformer(
-                    'jinaai/jina-embeddings-v2-base-en',
-                    trust_remote_code=True,
-                    device=device
-                )
-            except Exception as e:
-                print(f"⚠️ Failed to load embedding model: {e}")
-
         for event in new_events:
             # Initialize bookmark
             event['bookmarked'] = False
-
-            # Generate Embedding
-            if model:
-                try:
-                    title = event.get('name', '')
-                    description = event.get('description', '')
-
-                    if not title: title = ""
-                    if not description: description = ""
-
-                    combined_text = f"{title}\n\n{description}"
-                    event['vector'] = model.encode(combined_text).tolist()
-                except Exception as e:
-                    print(f"⚠️ Failed to generate embedding for event: {e}")
-                    event['vector'] = None
 
             event.setdefault('topic_id', None)
             event.setdefault('topic_label', None)

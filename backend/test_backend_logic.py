@@ -22,14 +22,6 @@ try:
             print(f"Cosine distance present: {first['cosine_distance']}")
         else:
             print("Cosine distance NOT present")
-            
-        # Check if vectors are loaded
-        if 'vector' in first:
-             vector = first['vector']
-             if vector is not None:
-                print("Vector data loaded (length):", len(vector))
-             else:
-                print("Vector is None")
 
         # Basic Stats on Cosine Distance
         import numpy as np

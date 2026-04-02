@@ -19,6 +19,20 @@ def _to_text_or_none(value):
     return str(value)
 
 
+def _extract_city_from_address(address):
+    if not isinstance(address, dict):
+        return None
+
+    city = address.get("addressLocality") or address.get("locality") or address.get("city")
+    region = address.get("addressRegion") or address.get("region") or address.get("state")
+
+    if city and region:
+        return f"{city}, {region}"
+    if city:
+        return city
+    return None
+
+
 def normalize_luma_event(raw):
     """Normalize a raw Luma event payload into the flat project schema."""
     base = raw.get("event") if isinstance(raw.get("event"), dict) else raw
@@ -27,10 +41,13 @@ def normalize_luma_event(raw):
     loc = raw.get("location") if isinstance(raw.get("location"), dict) else {}
     loc_geo = loc.get("geo") if isinstance(loc.get("geo"), dict) else {}
     coord = base.get("coordinate") if isinstance(base.get("coordinate"), dict) else {}
+    address = base.get("address") if isinstance(base.get("address"), dict) else raw.get("address") if isinstance(raw.get("address"), dict) else {}
+    location_name = base.get("location_name") or raw.get("location_name")
 
     city = (
         geo.get("city_state")
         or geo.get("city")
+        or _extract_city_from_address(address)
         or (
             f'{cal.get("geo_city")}, {cal.get("geo_region_abbrev") or cal.get("geo_region")}'
             if cal.get("geo_city")
@@ -72,7 +89,6 @@ def normalize_luma_event(raw):
             "longitude": _to_float_or_none(longitude),
         },
         "bookmarked": bool(raw.get("bookmarked", False)),
-        "vector": raw.get("vector"),
         "topic_id": raw.get("topic_id"),
         "topic_label": _to_text_or_none(raw.get("topic_label")),
         "topic_color": _to_text_or_none(raw.get("topic_color")),

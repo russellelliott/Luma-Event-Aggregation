@@ -37,7 +37,6 @@ def events_schema():
                 ),
             ),
             pa.field("bookmarked", pa.bool_()),
-            pa.field("vector", pa.list_(pa.float32())),
             pa.field("topic_id", pa.int64()),
             pa.field("topic_label", pa.string()),
             pa.field("topic_color", pa.string()),
@@ -74,11 +73,6 @@ def _to_text_or_none(value):
 
 def normalize_event_for_storage(event_entry):
     coordinates = event_entry.get("coordinates") if isinstance(event_entry.get("coordinates"), dict) else {}
-    vector = event_entry.get("vector")
-    if vector is not None and hasattr(vector, "tolist"):
-        vector = vector.tolist()
-    if isinstance(vector, list):
-        vector = [float(item) for item in vector if item is not None]
 
     return {
         "id": _to_text_or_none(event_entry.get("id")),
@@ -95,7 +89,6 @@ def normalize_event_for_storage(event_entry):
             "longitude": coordinates.get("longitude"),
         },
         "bookmarked": bool(event_entry.get("bookmarked", False)),
-        "vector": vector,
         "topic_id": event_entry.get("topic_id"),
         "topic_label": _to_text_or_none(event_entry.get("topic_label")),
         "topic_color": _to_text_or_none(event_entry.get("topic_color")),
@@ -103,27 +96,10 @@ def normalize_event_for_storage(event_entry):
     }
 
 
-def get_vector_length(events):
-    for event in events:
-        vector = event.get("vector")
-        if isinstance(vector, list) and vector:
-            return len(vector)
-    return None
-
-
 def build_events_table(events):
     normalized_events = [normalize_event_for_storage(event) for event in events]
     if not normalized_events:
         return None
-
-    vector_length = get_vector_length(normalized_events)
-    vector_values = []
-    for record in normalized_events:
-        vector = record["vector"]
-        if vector_length is None or not isinstance(vector, list) or len(vector) != vector_length:
-            vector_values.append(None)
-            continue
-        vector_values.append([float(item) if item is not None else None for item in vector])
 
     coordinates_array = pa.array(
         [
@@ -141,33 +117,43 @@ def build_events_table(events):
         ),
     )
 
-    if vector_length is None:
-        vector_array = pa.nulls(len(normalized_events))
-    else:
-        vector_type = pa.list_(pa.float32(), vector_length)
-        vector_array = pa.array(vector_values, type=vector_type)
+    arrays = [
+        pa.array([record["id"] for record in normalized_events], type=pa.string()),
+        pa.array([record["name"] for record in normalized_events], type=pa.string()),
+        pa.array([record["url"] for record in normalized_events], type=pa.string()),
+        pa.array([record["start_at"] for record in normalized_events], type=pa.string()),
+        pa.array([record["end_at"] for record in normalized_events], type=pa.string()),
+        pa.array([record["description"] for record in normalized_events], type=pa.string()),
+        pa.array([record["timezone"] for record in normalized_events], type=pa.string()),
+        pa.array([record["pricing"] for record in normalized_events], type=pa.string()),
+        pa.array([record["city"] for record in normalized_events], type=pa.string()),
+        coordinates_array,
+        pa.array([record["bookmarked"] for record in normalized_events], type=pa.bool_()),
+        pa.array([record["topic_id"] for record in normalized_events], type=pa.int64()),
+        pa.array([record["topic_label"] for record in normalized_events], type=pa.string()),
+        pa.array([record["topic_color"] for record in normalized_events], type=pa.string()),
+        pa.array([record["cosine_distance"] for record in normalized_events], type=pa.float64()),
+    ]
 
-    return pa.Table.from_arrays(
-        [
-            pa.array([record["id"] for record in normalized_events], type=pa.string()),
-            pa.array([record["name"] for record in normalized_events], type=pa.string()),
-            pa.array([record["url"] for record in normalized_events], type=pa.string()),
-            pa.array([record["start_at"] for record in normalized_events], type=pa.string()),
-            pa.array([record["end_at"] for record in normalized_events], type=pa.string()),
-            pa.array([record["description"] for record in normalized_events], type=pa.string()),
-            pa.array([record["timezone"] for record in normalized_events], type=pa.string()),
-            pa.array([record["pricing"] for record in normalized_events], type=pa.string()),
-            pa.array([record["city"] for record in normalized_events], type=pa.string()),
-            coordinates_array,
-            pa.array([record["bookmarked"] for record in normalized_events], type=pa.bool_()),
-            vector_array,
-            pa.array([record["topic_id"] for record in normalized_events], type=pa.int64()),
-            pa.array([record["topic_label"] for record in normalized_events], type=pa.string()),
-            pa.array([record["topic_color"] for record in normalized_events], type=pa.string()),
-            pa.array([record["cosine_distance"] for record in normalized_events], type=pa.float64()),
-        ],
-        schema=events_schema(),
-    )
+    field_names = [
+        "id",
+        "name",
+        "url",
+        "start_at",
+        "end_at",
+        "description",
+        "timezone",
+        "pricing",
+        "city",
+        "coordinates",
+        "bookmarked",
+        "topic_id",
+        "topic_label",
+        "topic_color",
+        "cosine_distance",
+    ]
+
+    return pa.Table.from_arrays(arrays, names=field_names)
 
 
 def load_events_from_lancedb(db_path=None):
