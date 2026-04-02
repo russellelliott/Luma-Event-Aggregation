@@ -1,25 +1,13 @@
 import os
+import random
 from datetime import datetime
 
 import lancedb
 import pandas as pd
+import pyarrow as pa
 from bertopic import BERTopic
 from sentence_transformers import SentenceTransformer
 import torch
-
-
-PALETTE = [
-    "#0EA5E9",
-    "#22C55E",
-    "#F97316",
-    "#EAB308",
-    "#EF4444",
-    "#14B8A6",
-    "#3B82F6",
-    "#84CC16",
-    "#F59E0B",
-    "#06B6D4",
-]
 
 
 def get_db_path():
@@ -37,6 +25,10 @@ def build_topic_label(topic_model, topic_id):
     return " / ".join(top_terms)
 
 
+def random_hex_color():
+    return f"#{random.randint(0, 255):02X}{random.randint(0, 255):02X}{random.randint(0, 255):02X}"
+
+
 def assign_outliers_to_fallback(topics):
     """Ensure every event has a concrete topic id by remapping BERTopic outliers (-1)."""
     non_outliers = [topic for topic in topics if topic != -1]
@@ -45,6 +37,109 @@ def assign_outliers_to_fallback(topics):
     else:
         fallback_topic = 0
     return [fallback_topic if topic == -1 else topic for topic in topics]
+
+
+def _to_text_or_none(value):
+    if value is None or pd.isna(value):
+        return None
+    if isinstance(value, str):
+        text = value.strip()
+        return text if text else None
+    return str(value)
+
+
+def _to_float_or_none(value):
+    if value is None or pd.isna(value):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _to_int_or_none(value):
+    if value is None or pd.isna(value):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def build_events_arrow_table(df):
+    records = []
+    for _, row in df.iterrows():
+        coordinates = row.get("coordinates") if isinstance(row.get("coordinates"), dict) else {}
+        records.append(
+            {
+                "id": _to_text_or_none(row.get("id")),
+                "name": _to_text_or_none(row.get("name")),
+                "url": _to_text_or_none(row.get("url")),
+                "start_at": _to_text_or_none(row.get("start_at")),
+                "end_at": _to_text_or_none(row.get("end_at")),
+                "description": _to_text_or_none(row.get("description")),
+                "timezone": _to_text_or_none(row.get("timezone")),
+                "pricing": _to_text_or_none(row.get("pricing")),
+                "city": _to_text_or_none(row.get("city")),
+                "coordinates": {
+                    "latitude": _to_float_or_none(coordinates.get("latitude")),
+                    "longitude": _to_float_or_none(coordinates.get("longitude")),
+                },
+                "bookmarked": bool(row.get("bookmarked", False)),
+                "topic_id": _to_int_or_none(row.get("topic_id")),
+                "topic_label": _to_text_or_none(row.get("topic_label")),
+                "topic_color": _to_text_or_none(row.get("topic_color")),
+                "cosine_distance": _to_float_or_none(row.get("cosine_distance")),
+            }
+        )
+
+    coordinates_array = pa.array(
+        [record["coordinates"] for record in records],
+        type=pa.struct(
+            [
+                pa.field("latitude", pa.float64()),
+                pa.field("longitude", pa.float64()),
+            ]
+        ),
+    )
+
+    arrays = [
+        pa.array([record["id"] for record in records], type=pa.string()),
+        pa.array([record["name"] for record in records], type=pa.string()),
+        pa.array([record["url"] for record in records], type=pa.string()),
+        pa.array([record["start_at"] for record in records], type=pa.string()),
+        pa.array([record["end_at"] for record in records], type=pa.string()),
+        pa.array([record["description"] for record in records], type=pa.string()),
+        pa.array([record["timezone"] for record in records], type=pa.string()),
+        pa.array([record["pricing"] for record in records], type=pa.string()),
+        pa.array([record["city"] for record in records], type=pa.string()),
+        coordinates_array,
+        pa.array([record["bookmarked"] for record in records], type=pa.bool_()),
+        pa.array([record["topic_id"] for record in records], type=pa.int64()),
+        pa.array([record["topic_label"] for record in records], type=pa.string()),
+        pa.array([record["topic_color"] for record in records], type=pa.string()),
+        pa.array([record["cosine_distance"] for record in records], type=pa.float64()),
+    ]
+
+    field_names = [
+        "id",
+        "name",
+        "url",
+        "start_at",
+        "end_at",
+        "description",
+        "timezone",
+        "pricing",
+        "city",
+        "coordinates",
+        "bookmarked",
+        "topic_id",
+        "topic_label",
+        "topic_color",
+        "cosine_distance",
+    ]
+
+    return pa.Table.from_arrays(arrays, names=field_names)
 
 
 def backup_events_table(db, events_df):
@@ -178,8 +273,8 @@ def cluster_event_topics(min_topic_size=8):
     topics = assign_outliers_to_fallback(topics)
 
     unique_topics = sorted({topic for topic in topics if topic != -1})
-    topic_color_map = {topic_id: PALETTE[i % len(PALETTE)] for i, topic_id in enumerate(unique_topics)}
-    topic_color_map[-1] = "#64748B"
+    topic_color_map = {topic_id: random_hex_color() for topic_id in unique_topics}
+    topic_color_map[-1] = random_hex_color()
 
     labels = []
     colors = []
@@ -191,7 +286,8 @@ def cluster_event_topics(min_topic_size=8):
     df["topic_label"] = labels
     df["topic_color"] = colors
 
-    db.create_table("events", data=df.to_dict("records"), mode="overwrite")
+    events_table = build_events_arrow_table(df)
+    db.create_table("events", data=events_table, mode="overwrite")
 
     topic_info = topic_model.get_topic_info()
     print("Updated topic clusters.")
