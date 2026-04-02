@@ -6,6 +6,10 @@ set -e
 echo "🚀 Starting Luma Event Aggregation Pipeline..."
 
 echo "--------------------------------------------------"
+echo "0. Creating backup of events table..."
+python3 backup_db.py
+
+echo "--------------------------------------------------"
 echo "1. Fetching events..."
 python3 fetchEvents.py
 
