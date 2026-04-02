@@ -14,8 +14,8 @@ echo "2. Generating event descriptions..."
 python3 generateEventDescriptions.py
 
 echo "--------------------------------------------------"
-echo "3. Classifying events..."
-python3 classifyEvents.py
+echo "3. Clustering event descriptions..."
+python3 cluster_topics.py
 
 echo "--------------------------------------------------"
 echo "✅ Pipeline completed successfully!"

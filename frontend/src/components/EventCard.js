@@ -1,25 +1,32 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { Calendar, MapPin, Users, Tag, Bookmark, Layers, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Calendar, MapPin, Tag, Bookmark, Layers, ChevronRight, ChevronLeft } from 'lucide-react';
 
 /**
  * Component to handle description truncation and expansion
  */
-const Description = ({ text }) => {
+const Description = ({ text, color }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   
-  if (!text) return <p className="text-xs text-gray-700 mb-4 flex-1">No description provided.</p>;
+    if (!text) return <p className="text-xs text-gray-700 mb-4 flex-1">No description provided.</p>;
 
   // Heuristic: only show toggle if text is reasonably long
   const shouldTruncate = text.length > 150;
 
   if (!shouldTruncate) {
-      return <p className="text-xs text-gray-700 mb-4 flex-1">{text}</p>;
+            return (
+                <p className="text-xs text-gray-700 mb-4 flex-1 pl-2 border-l-2" style={{ borderLeftColor: color || '#CBD5E1' }}>
+                    {text}
+                </p>
+            );
   }
 
   return (
     <div className="mb-4 flex-1">
-      <p className={`text-xs text-gray-700 ${isExpanded ? '' : 'line-clamp-3'}`}>
+            <p
+                className={`text-xs text-gray-700 pl-2 border-l-2 ${isExpanded ? '' : 'line-clamp-3'}`}
+                style={{ borderLeftColor: color || '#CBD5E1' }}
+            >
         {text}
       </p>
       <button 
@@ -71,9 +78,8 @@ const formatDateTimeRange = (start, end) => {
  * @returns {string} The location string.
  */
 const getLocation = (event) => {
-  if (event.location_type === 'online') return 'Online';
-  const geo = event.geo_address_info || {};
-  return geo.short_address || geo.address || geo.full_address || geo.city_state || 'Location TBD';
+    if (event.location_type === 'online') return 'Online';
+    return event.city || 'Location TBD';
 };
 
 /**
@@ -81,39 +87,20 @@ const getLocation = (event) => {
  * @param {object} ticketInfo - The ticket info object.
  * @returns {string} The price label.
  */
-const getPriceLabel = (ticketInfo) => {
-  if (!ticketInfo) return 'Price TBD';
-  
-  const priceCents = ticketInfo.price?.cents || 0;
-  const maxPriceCents = ticketInfo.max_price?.cents || 0;
-  
-  // Determine currency
-  const currency = ticketInfo.price?.currency || ticketInfo.max_price?.currency || ticketInfo.currency_info?.currency || 'USD';
-  // Handle empty string currency
-  const validCurrency = currency === '' ? 'USD' : currency;
-
-  if (priceCents === 0 && maxPriceCents === 0) return 'Free';
-
-  const formatPrice = (cents) => {
-      return new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency: validCurrency,
-          minimumFractionDigits: cents % 100 === 0 ? 0 : 2
-      }).format(cents / 100);
-  };
-
-  if (priceCents === 0 && maxPriceCents > 0) {
-      return `Free - ${formatPrice(maxPriceCents)}`;
-  }
-
-  if (priceCents > 0) {
-      if (maxPriceCents > priceCents) {
-          return `${formatPrice(priceCents)} - ${formatPrice(maxPriceCents)}`;
-      }
-      return formatPrice(priceCents);
-  }
-  
-  return 'Free';
+const getPriceLabel = (pricing) => {
+    if (!pricing) return 'Price TBD';
+    if (typeof pricing === 'string') return pricing;
+    if (Array.isArray(pricing)) {
+        const prices = pricing
+            .map(option => Number(option?.price ?? 0))
+            .filter(price => Number.isFinite(price));
+        if (!prices.length || prices.every(price => price <= 0)) return 'Free';
+        const min = Math.min(...prices);
+        const max = Math.max(...prices);
+        if (min === max) return `$${min}`;
+        return `$${min} - $${max}`;
+    }
+    return 'Price TBD';
 };
 
 /**
@@ -128,7 +115,7 @@ const EventCard = ({ events, onBookmark, onViewEvent, isSearching, viewMode }) =
   const groupEventsByDate = (eventList) => {
     // First, filter out invalid events
     const validEvents = eventList.filter(item => {
-        const date = item.start_at || (item.event && item.event.start_at);
+        const date = item.start_at;
         return date;
     });
 
@@ -153,7 +140,7 @@ const EventCard = ({ events, onBookmark, onViewEvent, isSearching, viewMode }) =
     // Grouping for Stacked View
     const groups = {};
     validEvents.forEach(item => {
-        const rawDate = item.start_at || (item.event && item.event.start_at);
+        const rawDate = item.start_at;
         const dateKey = format(new Date(rawDate), 'yyyy-MM-dd');
         if (!groups[dateKey]) groups[dateKey] = [];
         groups[dateKey].push(item);
@@ -276,20 +263,16 @@ const SingleEventCard = ({ item, onBookmark, onViewEvent, isSearching }) => {
 };
 
 const SingleEventCardContent = ({ item, onBookmark, onViewEvent, isSearching }) => {
-    // Use optional chaining and nullish coalescing for safety
-    // Handle both nested and flat event structures
-    const event = item.event || item;
-    const ticket_info = item.ticket_info || event.ticket_info || {};
-    const guest_count = item.guest_count || event.guest_count || 0;
+    const event = item;
     const isBookmarked = item.bookmarked || false;
 
     // Combined Date & Time Display
     const dateTimeDisplay = formatDateTimeRange(event.start_at, event.end_at);
     
     const location = getLocation(event);
-    const priceLabel = getPriceLabel(ticket_info);
-    const eventType = event.event_type ? event.event_type.replace(/_/g, ' ') : 'General Event';
-    const audience = event.audience ? event.audience.replace(/_/g, ' ') : 'General Audience';
+    const priceLabel = getPriceLabel(event.pricing);
+    const topicLabel = event.topic_label || 'Unclustered';
+    const topicColor = event.topic_color || '#64748B';
 
     // Handle URL: if it doesn't start with http, assume it's a Luma slug
     const rawUrl = event.url || '';
@@ -375,20 +358,21 @@ const SingleEventCardContent = ({ item, onBookmark, onViewEvent, isSearching }) 
 
             {/* Tags */}
             <div className="flex flex-wrap gap-2 mb-4">
-                {/* Event Type */}
-                <div className="flex items-center space-x-1 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-full py-0.5 px-2.5">
+                                <div
+                                    className="flex items-center space-x-1 text-xs font-medium rounded-full py-0.5 px-2.5"
+                                    style={{
+                                        color: topicColor,
+                                        border: `1px solid ${topicColor}33`,
+                                        backgroundColor: `${topicColor}14`
+                                    }}
+                                >
                     <Tag className="w-3 h-3" />
-                    <span className="uppercase">{eventType}</span>
-                </div>
-                {/* Audience */}
-                <div className="flex items-center space-x-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-full py-0.5 px-2.5">
-                    <Users className="w-3 h-3" />
-                    <span className="uppercase">{audience}</span>
+                                        <span>{topicLabel}</span>
                 </div>
             </div>
             
             {/* Event Description (Truncated) */}
-            <Description text={event.description} />
+                        <Description text={event.description} color={topicColor} />
 
             {/* Action Button */}
             <a 

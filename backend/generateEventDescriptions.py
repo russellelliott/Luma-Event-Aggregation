@@ -30,7 +30,27 @@ def load_events_from_lancedb(db_path=None):
     return events
 
 
-def generate_descriptions_for_all_events(events, delay=1.0):
+def persist_single_event_update(event_entry, db_path=None):
+    if db_path is None:
+        home_dir = os.path.expanduser("~")
+        db_path = os.path.join(home_dir, ".luma-event-aggregation", "data", "events.db")
+
+    db = lancedb.connect(db_path)
+    table = db.open_table("events")
+    event_id = event_entry.get("id")
+    if not event_id:
+        return
+
+    table.update(
+        where=f"id = '{event_id}'",
+        values={
+            "description": event_entry.get("description"),
+            "pricing": event_entry.get("pricing"),
+        },
+    )
+
+
+def generate_descriptions_for_all_events(events, delay=1.0, db_path=None):
     """
     Generate descriptions and pricing for all events.
     Adds the data directly to the event objects.
@@ -43,19 +63,14 @@ def generate_descriptions_for_all_events(events, delay=1.0):
         list: List of events with added descriptions and pricing
     """
     print(f"Processing {len(events)} events sequentially with {delay}s delay between requests...\n")
-    events_with_descriptions = []
-    
     for i, event_entry in enumerate(events):
-        # Handle both nested and flat event structures
-        event_data = event_entry.get('event', event_entry) if isinstance(event_entry, dict) else event_entry
-        event_url = event_data.get('url')
-        event_name = event_data.get('name', 'Unknown Event')
+        event_url = event_entry.get('url')
+        event_name = event_entry.get('name', 'Unknown Event')
         
         if event_url:
             # Check if we already have the description
-            if event_data.get('description'):
+            if event_entry.get('description'):
                 print(f"[{i+1}/{len(events)}] Skipping: {event_name} (already has description)")
-                events_with_descriptions.append(event_entry)
                 continue
 
             print(f"[{i+1}/{len(events)}] Processing: {event_name}")
@@ -68,24 +83,24 @@ def generate_descriptions_for_all_events(events, delay=1.0):
             if 'error' not in event_info:
                 # Add description to event
                 if 'description' in event_info:
-                    event_data['description'] = event_info['description']
+                    event_entry['description'] = event_info['description']
                 
                 # Add pricing information to event
                 if 'pricing' in event_info:
-                    event_data['pricing'] = event_info['pricing']
+                    event_entry['pricing'] = event_info['pricing']
+
+                persist_single_event_update(event_entry, db_path=db_path)
                 
-                print(f"  ✓ Description and pricing added")
+                print(f"  ✓ Description and pricing added and persisted")
             else:
                 print(f"  ⚠️  Error: {event_info['error']}")
                 # Still add error info for reference
-                event_data['fetch_error'] = event_info['error']
+                event_entry['fetch_error'] = event_info['error']
         else:
             print(f"[{i+1}/{len(events)}] Skipping: {event_name} (no URL found)")
-            event_data['fetch_error'] = 'No URL found'
-        
-        events_with_descriptions.append(event_entry)
-    
-    return events_with_descriptions
+            event_entry['fetch_error'] = 'No URL found'
+
+    return events
 
 
 def save_descriptions_to_lancedb(events_with_descriptions, db_path=None):
@@ -117,9 +132,6 @@ if __name__ == '__main__':
         
         # Generate descriptions for all events (1 second delay per request)
         events_with_descriptions = generate_descriptions_for_all_events(events, delay=1.0)
-        
-        # Save the results back to LanceDB
-        save_descriptions_to_lancedb(events_with_descriptions)
         
         print(f"\n🎉 Successfully processed {len(events_with_descriptions)} events!")
     

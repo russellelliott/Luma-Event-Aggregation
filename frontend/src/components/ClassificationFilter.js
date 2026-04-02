@@ -1,23 +1,7 @@
 import React from 'react';
-import { Tag, Users, Bookmark, DollarSign } from 'lucide-react';
+import { Tag, Bookmark, DollarSign } from 'lucide-react';
 
-const EVENT_TYPES = [
-  { id: 'career_fair', label: 'Career Fair' },
-  { id: 'hackathon', label: 'Hackathon' },
-  { id: 'workshop', label: 'Workshop' },
-  { id: 'networking', label: 'Networking' },
-  { id: 'conference', label: 'Conference' },
-  { id: 'demo_day', label: 'Panel' },
-  { id: 'panel_discussion', label: 'Panel' },
-];
-
-const AUDIENCE_CATEGORIES = [
-  { id: 'job_seekers', label: 'Job Seekers' },
-  { id: 'founder_investor', label: 'Founder / Investor' },
-  { id: 'general', label: 'General' }
-];
-
-export default function ClassificationFilter({ selectedFilters, onFilterChange }) {
+export default function ClassificationFilter({ selectedFilters, onFilterChange, topicOptions }) {
   const handleToggle = (category, value) => {
     const currentValues = selectedFilters[category] || [];
     const newValues = currentValues.includes(value)
@@ -70,53 +54,35 @@ export default function ClassificationFilter({ selectedFilters, onFilterChange }
         </button>
       </div>
 
-      {/* Event Types */}
+      {/* Topic Clusters */}
       <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100">
         <div className="flex items-center gap-2 mb-2">
           <Tag className="w-4 h-4 text-blue-600" />
-          <h3 className="text-sm font-semibold text-gray-800">Event Types</h3>
+          <h3 className="text-sm font-semibold text-gray-800">Description Clusters</h3>
         </div>
         <div className="flex flex-wrap gap-1.5">
-          {EVENT_TYPES.map(type => (
+          {topicOptions.map(topic => (
             <button
-              key={type.id}
-              onClick={() => handleToggle('eventTypes', type.id)}
+              key={topic.label}
+              onClick={() => handleToggle('topicLabels', topic.label)}
               className={`
                 px-2.5 py-1 rounded-md text-xs font-medium border transition-all
-                ${selectedFilters.eventTypes?.includes(type.id)
+                ${selectedFilters.topicLabels?.includes(topic.label)
                   ? 'bg-blue-100 text-blue-700 border-blue-200'
                   : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
                 }
               `}
+              style={{
+                borderColor: selectedFilters.topicLabels?.includes(topic.label) ? topic.color : undefined,
+                color: selectedFilters.topicLabels?.includes(topic.label) ? topic.color : undefined
+              }}
             >
-              {type.label}
+              {topic.label} ({topic.count})
             </button>
           ))}
-        </div>
-      </div>
-
-      {/* Audience Categories */}
-      <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100">
-        <div className="flex items-center gap-2 mb-2">
-          <Users className="w-4 h-4 text-purple-600" />
-          <h3 className="text-sm font-semibold text-gray-800">Audience</h3>
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {AUDIENCE_CATEGORIES.map(category => (
-            <button
-              key={category.id}
-              onClick={() => handleToggle('audienceCategories', category.id)}
-              className={`
-                px-2.5 py-1 rounded-md text-xs font-medium border transition-all
-                ${selectedFilters.audienceCategories?.includes(category.id)
-                  ? 'bg-purple-100 text-purple-700 border-purple-200'
-                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                }
-              `}
-            >
-              {category.label}
-            </button>
-          ))}
+          {topicOptions.length === 0 && (
+            <span className="text-xs text-gray-400">No topic clusters yet. Run cluster_topics.py.</span>
+          )}
         </div>
       </div>
     </div>

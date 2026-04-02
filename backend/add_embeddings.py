@@ -36,23 +36,8 @@ def add_embeddings():
         
         embeddings = []
         for index, row in df.iterrows():
-            # Get title and description regardless of where they are
-            # Based on inspect_db output, 'event' column might be a struct/dict
-            # But the user example implies we use what constitutes title and description.
-            # Let's inspect the dataframe columns to be sure where title and description are.
-            # Usually strict schema means columns are top level, but inspect_db hinted at 'event' column.
-            # Let's check `fetchEvents.py` to see how data is inserted to be sure.
-            
-            # Assuming top level title/description or extraction logic.
-            # If columns exist at top level:
-            title = row.get('title', '')
+            title = row.get('name', '')
             description = row.get('description', '')
-            
-            # If they are inside 'event' dict/struct
-            if 'event' in df.columns and isinstance(row['event'], dict):
-                event_data = row['event']
-                if not title: title = event_data.get('title', '')
-                if not description: description = event_data.get('description', '')
 
             combined_text = f"{title}\n\n{description}"
             # Encode returns numpy array, convert to list for storage if needed or LanceDB handles it

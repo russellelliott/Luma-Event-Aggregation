@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Home, Plus, X, Loader, LayoutList, Layers } from 'lucide-react';
 import DistanceSlider from './components/DistanceSlider';
 import ClassificationFilter from './components/ClassificationFilter';
@@ -34,11 +34,11 @@ function App() {
   const [cities, setCities] = useState([]);
   const [selectedCityIndex, setSelectedCityIndex] = useState(0);
   const [selectedFilters, setSelectedFilters] = useState({
-    eventTypes: [],
-    audienceCategories: [],
+    topicLabels: [],
     bookmarked: false,
     showPaid: false // Default: Do not show paid events
   });
+  const [topicOptions, setTopicOptions] = useState([]);
   const [selectedDates, setSelectedDates] = useState([]);
   const [selectedDays, setSelectedDays] = useState(new Set());
   const [allEvents, setAllEvents] = useState([]);
@@ -74,17 +74,23 @@ function App() {
         setCities(data);
       })
       .catch(err => console.error('Error fetching cities:', err));
+
+    fetch('http://localhost:8001/topics')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setTopicOptions(data);
+        }
+      })
+      .catch(err => console.error('Error fetching topics:', err));
   }, []);
 
   // Fetch all events once or when non-distance filters change
   useEffect(() => {
     const params = new URLSearchParams();
     
-    // Add event types
-    selectedFilters.eventTypes.forEach(type => params.append('event-type', type));
-
-    // Add audience
-    selectedFilters.audienceCategories.forEach(audience => params.append('audience', audience));
+    // Add topics
+    selectedFilters.topicLabels.forEach(topic => params.append('topic', topic));
 
     // Add bookmarked
     if (selectedFilters.bookmarked) {
@@ -128,7 +134,7 @@ function App() {
       .catch(err => console.error('Error fetching events:', err))
       .finally(() => setIsLoading(false));
 
-  }, [selectedFilters.eventTypes, selectedFilters.audienceCategories, selectedFilters.bookmarked, searchQuery]); // Exclude selectedFilters.showPaid from fetch dep, handle on client
+  }, [selectedFilters.topicLabels, selectedFilters.bookmarked, searchQuery]); // Exclude selectedFilters.showPaid from fetch dep, handle on client
 
   // Filter events client-side
   useEffect(() => {
@@ -156,10 +162,16 @@ function App() {
       // 2. Paid/Free Filter
       // If showPaid is false, ONLY show Free events
       if (!selectedFilters.showPaid) {
-        const ticketInfo = event.ticket_info || (event.event && event.event.ticket_info);
-        const price = ticketInfo?.price?.cents || 0;
-        const maxPrice = ticketInfo?.max_price?.cents || 0;
-        if (price > 0 || maxPrice > 0) return false;
+        const pricing = event.pricing;
+        const pricingText = typeof pricing === 'string' ? pricing.toLowerCase() : '';
+        if (pricingText && pricingText.includes('paid')) return false;
+        if (Array.isArray(pricing)) {
+          const hasPaidOption = pricing.some(option => {
+            const value = Number(option?.price ?? 0);
+            return Number.isFinite(value) && value > 0;
+          });
+          if (hasPaidOption) return false;
+        }
       }
       
       // 3. Match Distance Filter (Cosine Distance)
@@ -181,10 +193,9 @@ function App() {
           return filteredEvents;
       }
       return filteredEvents.filter(item => {
-          const event = item.event || item;
-          if (!event.start_at) return false;
+          if (!item.start_at) return false;
           
-          const d = new Date(event.start_at);
+          const d = new Date(item.start_at);
           
           // Check specific dates
           const dateMatch = selectedDates.some(sd => 
@@ -350,6 +361,7 @@ function App() {
                 <ClassificationFilter 
                   selectedFilters={selectedFilters}
                   onFilterChange={handleFilterChange}
+                  topicOptions={topicOptions}
                 />
                 
                 <MatchSlider 

@@ -40,6 +40,7 @@ from dotenv import load_dotenv
 import lancedb
 from sentence_transformers import SentenceTransformer
 import torch
+from normalize_event import normalize_luma_event
 
 # Load environment variables from .env file
 load_dotenv()
@@ -196,7 +197,7 @@ async def fetch_all_luma_events_calendar_api(session, east, north, south, west, 
 
 def get_start_at(item):
     """Extract start_at datetime from event item."""
-    s = item.get("start_at") or item.get("event", {}).get("start_at")
+    s = item.get("start_at")
     if not s:
         return None
     try:
@@ -218,17 +219,7 @@ def get_event_api_id(event):
     Returns:
         The api_id string, or None if not found
     """
-    # Try nested event.api_id first (this is the unique event identifier)
-    api_id = event.get("event", {}).get("api_id")
-    if api_id:
-        return api_id
-    
-    # Fallback to top-level api_id
-    api_id = event.get("api_id")
-    if api_id:
-        return api_id
-    
-    return None
+    return event.get("url") or event.get("id")
 
 
 def get_event_url(event):
@@ -240,17 +231,7 @@ def get_event_url(event):
     Returns:
         The url string, or None if not found
     """
-    # Try nested event.url first
-    url = event.get("event", {}).get("url")
-    if url:
-        return url
-    
-    # Fallback to top-level url
-    url = event.get("url")
-    if url:
-        return url
-    
-    return None
+    return event.get("url")
 
 
 def deduplicate_events(events):
@@ -277,7 +258,7 @@ def deduplicate_events(events):
                 deduplicated.append(event)
             else:
                 duplicates_count += 1
-                event_name = event.get("event", {}).get("name") or event.get("name", "Unknown")
+                event_name = event.get("name", "Unknown")
                 duplicates_list.append(f"  - {api_id}: {event_name}")
         else:
             # Events without api_id are kept (shouldn't happen, but safety measure)
@@ -300,35 +281,8 @@ def get_event_coordinates(event_data):
     Tries to find coordinates in 3 different places.
     Returns (lat, lon) or (None, None).
     """
-    lat, lon = None, None
-
-    # Check 1: The 'coordinate' object directly on the event (First JSON example)
-    # This is usually the most accurate for Luma events
-    if event_data.get('event') and event_data['event'].get('coordinate'):
-        coord = event_data['event']['coordinate']
-        lat = coord.get('latitude')
-        lon = coord.get('longitude')
-
-    # Check 2: The 'location' object (Second JSON example / Schema.org style)
-    if lat is None and event_data.get('location'):
-        loc = event_data['location']
-        
-        # Sometimes it's directly in location
-        lat = loc.get('latitude')
-        lon = loc.get('longitude')
-        
-        # Sometimes it's nested in 'geo'
-        if lat is None and loc.get('geo'):
-            lat = loc['geo'].get('latitude')
-            lon = loc['geo'].get('longitude')
-
-    # Check 3: Fallback to Geo Address Info (if available in API response)
-    if lat is None and event_data.get('event', {}).get('geo_address_info'):
-        geo = event_data['event']['geo_address_info']
-        lat = geo.get('latitude')
-        lon = geo.get('longitude')
-
-    return lat, lon
+    coords = event_data.get("coordinates") if isinstance(event_data.get("coordinates"), dict) else {}
+    return coords.get("latitude"), coords.get("longitude")
 
 
 def extract_city(item, gmaps_client=None):
@@ -341,31 +295,11 @@ def extract_city(item, gmaps_client=None):
     Returns:
         City string in "City, State" format, or "Unknown" if not found
     """
-    ev = item.get("event", {})
-    geo = ev.get("geo_address_info", {}) if isinstance(ev.get("geo_address_info", {}), dict) else {}
+    city = item.get("city")
     
     vague_cities = ["California", "United States", "USA", "Register to See Address"]
 
-    # PREFER city_state like "San Francisco, California" for better Google Maps accuracy
-    city_state = geo.get("city_state")
-    if city_state and city_state not in vague_cities:
-        return city_state
-
-    # Fallback to calendar geo_city with state if available
-    cal_city = item.get("calendar", {}).get("geo_city")
-    cal_region = item.get("calendar", {}).get("geo_region_abbrev") or item.get("calendar", {}).get("geo_region")
-    if cal_city and cal_city not in vague_cities:
-        if cal_region:
-            return f"{cal_city}, {cal_region}"
-        return cal_city
-
-    # Fallback to explicit city field (but this lacks state info)
-    city = geo.get("city")
     if city and city not in vague_cities:
-        # Try to add state if available
-        state = geo.get("region") or geo.get("region_abbrev")
-        if state:
-            return f"{city}, {state}"
         return city
 
     # Last resort: Use reverse geocoding if coordinates are available
@@ -397,11 +331,6 @@ def extract_city(item, gmaps_client=None):
     # If we still have a vague city name, return it as a last resort
     if city:
         return city
-    if city_state:
-        return city_state
-    if cal_city:
-        return cal_city
-
     return "Unknown"
 
 
@@ -485,23 +414,6 @@ def normalize_city_data(event):
     Returns:
         The event with normalized geo_address_info (city and state fields populated)
     """
-    ev = event.get("event", {})
-    geo = ev.get("geo_address_info", {}) if isinstance(ev.get("geo_address_info", {}), dict) else {}
-    
-    # If city field is missing but city_state is present, extract it
-    if not geo.get("city") and geo.get("city_state"):
-        city_state = geo.get("city_state", "")
-        if "," in city_state:
-            parts = city_state.split(",", 1)
-            geo["city"] = parts[0].strip()
-            # Only set state if not already present
-            if not geo.get("region") and len(parts) > 1:
-                geo["region"] = parts[1].strip()
-            
-            # Update the event with normalized data
-            if isinstance(ev.get("geo_address_info"), dict):
-                ev["geo_address_info"] = geo
-    
     return event
 
 
@@ -518,21 +430,9 @@ def enrich_event_with_city(event, gmaps_client):
     # First normalize existing city_state data
     event = normalize_city_data(event)
     
-    ev = event.get("event", {})
-    geo = ev.get("geo_address_info", {}) if isinstance(ev.get("geo_address_info", {}), dict) else {}
-    
-    # Check if city data is already present
-    # We consider "California", "United States", "USA" as vague/invalid and try to improve it
-    current_city = geo.get("city")
-    current_city_state = geo.get("city_state")
-    cal_city = event.get("calendar", {}).get("geo_city")
+    current_city = event.get("city")
     vague_cities = ["California", "United States", "USA", "Register to See Address"]
-    
-    has_valid_city_data = (
-        (current_city_state and not any(v in current_city_state for v in vague_cities if v == current_city_state)) or 
-        (current_city and current_city not in vague_cities) or 
-        (cal_city and cal_city not in vague_cities)
-    )
+    has_valid_city_data = current_city and current_city not in vague_cities
     
     # If no city data OR it's vague, try to add it via reverse geocoding
     if not has_valid_city_data and gmaps_client:
@@ -556,19 +456,8 @@ def enrich_event_with_city(event, gmaps_client):
                         elif "country" in types:
                             country_name = component.get("long_name")
                     
-                    # Enrich the geo_address_info with the geocoded data
                     if city_name:
-                        geo["city"] = city_name
-                        if state_name:
-                            geo["region"] = state_name
-                            geo["city_state"] = f"{city_name}, {state_name}"
-                        if country_name:
-                            geo["country"] = country_name
-                        
-                        # Update the event with enriched data
-                        if isinstance(ev.get("geo_address_info"), dict):
-                            ev["geo_address_info"] = geo
-                        
+                        event["city"] = f"{city_name}, {state_name}" if state_name else city_name
                         return event, True  # Return event and enrichment flag
                         
             except Exception as e:
@@ -732,6 +621,7 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
             all_events.extend(events)
 
         print(f"\n✓ Total events collected from all sources: {len(all_events)}")
+        all_events = [normalize_luma_event(event) for event in all_events]
         
         # Remove duplicate events based on api_id
         print("🔄 Removing duplicate events...")
@@ -837,6 +727,7 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
                     return obj
                 
                 existing_events = [clean_nans(e) for e in existing_events]
+                existing_events = [normalize_luma_event(e) for e in existing_events]
                 
                 # Build set of existing URLs
                 for event in existing_events:
@@ -880,30 +771,15 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
                 print(f"⚠️ Failed to load embedding model: {e}")
 
         for event in new_events:
-            # Initialize classification fields if not present
-            if 'event_type' not in event:
-                event['event_type'] = None
-            if 'audience' not in event:
-                event['audience'] = None
-            
             # Initialize bookmark
             event['bookmarked'] = False
-            
-            # Generate new UUID
-            event['id'] = str(uuid.uuid4())
 
             # Generate Embedding
             if model:
                 try:
-                    title = event.get('title', '')
+                    title = event.get('name', '')
                     description = event.get('description', '')
-                    
-                    # Check nested 'event' key if top level is empty
-                    if not title and isinstance(event.get('event'), dict):
-                        title = event['event'].get('title', '')
-                    if not description and isinstance(event.get('event'), dict):
-                        description = event['event'].get('description', '')
-                        
+
                     if not title: title = ""
                     if not description: description = ""
 
@@ -912,6 +788,10 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
                 except Exception as e:
                     print(f"⚠️ Failed to generate embedding for event: {e}")
                     event['vector'] = None
+
+            event.setdefault('topic_id', None)
+            event.setdefault('topic_label', None)
+            event.setdefault('topic_color', None)
 
         # Combine existing and new events
         final_events = existing_events + new_events

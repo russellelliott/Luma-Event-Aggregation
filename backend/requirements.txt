@@ -9,3 +9,6 @@ pandas
 fastapi
 uvicorn
 sentence-transformers
+bertopic
+umap-learn
+hdbscan
