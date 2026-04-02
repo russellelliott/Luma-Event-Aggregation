@@ -4,7 +4,7 @@ import os
 import lancedb
 
 
-DEFAULT_BACKUP_TABLE = "events_backup_1771288983"
+DEFAULT_BACKUP_TABLE = "events_backup_1775171059"
 
 
 def get_db_path() -> str:

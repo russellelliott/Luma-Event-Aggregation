@@ -39,6 +39,7 @@ import googlemaps
 from dotenv import load_dotenv
 import lancedb
 import pyarrow as pa
+from urllib.parse import urlparse
 from normalize_event import normalize_luma_event
 
 # Load environment variables from .env file
@@ -218,7 +219,8 @@ def get_event_api_id(event):
     Returns:
         The api_id string, or None if not found
     """
-    return event.get("url") or event.get("id")
+    canonical_url = canonicalize_event_url(get_event_url(event))
+    return canonical_url or event.get("id")
 
 
 def get_event_url(event):
@@ -230,7 +232,50 @@ def get_event_url(event):
     Returns:
         The url string, or None if not found
     """
-    return event.get("url")
+    if not isinstance(event, dict):
+        return None
+
+    nested_event = event.get("event") if isinstance(event.get("event"), dict) else {}
+    return event.get("url") or nested_event.get("url")
+
+
+def canonicalize_event_url(url):
+    """Return a canonical URL string for stable deduping and DB matching."""
+    if not url:
+        return None
+
+    text = str(url).strip()
+    if not text:
+        return None
+
+    # Luma API often returns slug-only values (for example: "abc123").
+    if not text.startswith("http"):
+        text = f"https://luma.com/{text.lstrip('/')}"
+
+    try:
+        parsed = urlparse(text)
+    except Exception:
+        return text
+
+    host = (parsed.netloc or "").lower()
+    if host in {"lu.ma", "www.lu.ma", "luma.com", "www.luma.com"}:
+        host = "luma.com"
+
+    path = parsed.path or ""
+    if path != "/":
+        path = path.rstrip("/")
+
+    scheme = parsed.scheme or "https"
+    canonical = f"{scheme}://{host}{path}"
+
+    # Keep query/fragment only for non-Luma URLs.
+    if host and host != "luma.com":
+        if parsed.query:
+            canonical += f"?{parsed.query}"
+        if parsed.fragment:
+            canonical += f"#{parsed.fragment}"
+
+    return canonical
 
 
 def deduplicate_events(events):
@@ -653,6 +698,39 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
     db = lancedb.connect(db_path)
     print(f"🗄️  Connected to LanceDB at {db_path}")
 
+    # Load existing events/URLs early so we can skip already-known events before
+    # expensive processing (enrichment, filtering, summary generation).
+    existing_events = []
+    existing_urls = set()
+
+    if "events" in db.list_tables():
+        try:
+            tbl = db.open_table("events")
+            existing_events = tbl.to_pandas().to_dict(orient='records')
+
+            # Clean NaNs from existing events (Pandas introduces NaNs)
+            def clean_nans(obj):
+                if isinstance(obj, float) and math.isnan(obj):
+                    return None
+                elif isinstance(obj, dict):
+                    return {k: clean_nans(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [clean_nans(v) for v in obj]
+                return obj
+
+            existing_events = [clean_nans(e) for e in existing_events]
+            existing_events = [normalize_luma_event(e) for e in existing_events]
+
+            for event in existing_events:
+                canonical_url = canonicalize_event_url(get_event_url(event))
+                if canonical_url:
+                    existing_urls.add(canonical_url)
+
+            print(f"✓ Loaded {len(existing_events)} existing events from DB")
+            print(f"✓ Loaded {len(existing_urls)} canonical existing URLs")
+        except Exception as e:
+            print(f"⚠️ Could not read existing data: {e}")
+
     # Create a single aiohttp session for all requests
     async with aiohttp.ClientSession() as session:
         # Create tasks for all slugs
@@ -682,6 +760,23 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
 
         print(f"\n✓ Total events collected from all sources: {len(all_events)}")
         all_events = [normalize_luma_event(event) for event in all_events]
+
+        # Skip events whose canonical URL is already present in DB.
+        preexisting_skip_count = 0
+        unseen_events = []
+
+        for event in all_events:
+            canonical_url = canonicalize_event_url(get_event_url(event))
+            if canonical_url and canonical_url in existing_urls:
+                preexisting_skip_count += 1
+                continue
+            unseen_events.append(event)
+
+        all_events = unseen_events
+        print(
+            f"✓ Skipped {preexisting_skip_count} events already present in DB by URL "
+            f"before processing"
+        )
         
         # Remove duplicate events based on api_id
         print("🔄 Removing duplicate events...")
@@ -766,46 +861,14 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
         else:
             print("✓ No non-California events found")
 
-        # Load existing events to preserve them and avoid duplicates
-        existing_events = []
-        existing_urls = set()
-        
-        if "events" in db.list_tables():
-            try:
-                tbl = db.open_table("events")
-                # Load all existing events
-                existing_events = tbl.to_pandas().to_dict(orient='records')
-                
-                # Clean NaNs from existing events (Pandas introduces NaNs)
-                def clean_nans(obj):
-                    if isinstance(obj, float) and math.isnan(obj):
-                        return None
-                    elif isinstance(obj, dict):
-                        return {k: clean_nans(v) for k, v in obj.items()}
-                    elif isinstance(obj, list):
-                        return [clean_nans(v) for v in obj]
-                    return obj
-                
-                existing_events = [clean_nans(e) for e in existing_events]
-                existing_events = [normalize_luma_event(e) for e in existing_events]
-                
-                # Build set of existing URLs
-                for event in existing_events:
-                    url = get_event_url(event)
-                    if url:
-                        existing_urls.add(url)
-                        
-                print(f"✓ Loaded {len(existing_events)} existing events from DB")
-            except Exception as e:
-                print(f"⚠️ Could not read existing data: {e}")
-
         # Filter fetched events to only include those not in DB
+        # (a defensive second pass in case URL canonicalization changed later).
         new_events = []
         skipped_count = 0
         
         for event in all_events:
-            url = get_event_url(event)
-            if url and url in existing_urls:
+            canonical_url = canonicalize_event_url(get_event_url(event))
+            if canonical_url and canonical_url in existing_urls:
                 skipped_count += 1
                 continue
             new_events.append(event)
