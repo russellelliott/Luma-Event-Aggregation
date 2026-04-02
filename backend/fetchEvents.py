@@ -873,7 +873,11 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
                 continue
             new_events.append(event)
             
-        print(f"✓ Found {len(new_events)} new events (skipped {skipped_count} existing)")
+        total_skipped_existing = preexisting_skip_count + skipped_count
+        print(
+            f"✓ Found {len(new_events)} new events "
+            f"(skipped {total_skipped_existing} existing by URL)"
+        )
 
         # Initialize fields for NEW events only
         print("📝 Initializing fields for new events...")
