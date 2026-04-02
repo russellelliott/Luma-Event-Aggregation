@@ -7,7 +7,6 @@ import DayPicker from './components/DayPicker';
 import EventCard from './components/EventCard';
 import AddEvent from './components/AddEvent';
 import SearchBar from './components/SearchBar';
-import MatchSlider from './components/MatchSlider';
 import './App.css';
 
 // Simple Modal Component
@@ -49,10 +48,8 @@ function App() {
   // View Mode: 'stacked' (grouped by day) or 'list' (flat list sorted by relevance)
   const [viewMode, setViewMode] = useState('stacked');
 
-  // Search and Match Slider State
+  // Search State
   const [searchQuery, setSearchQuery] = useState('');
-  const [maxDistanceFilter, setMaxDistanceFilter] = useState(0.8);
-  const [distanceRange, setDistanceRange] = useState({ min: 0.0, max: 0.8 });
   
   // Bookmark Modal State
   const [bookmarkModalOpen, setBookmarkModalOpen] = useState(false);
@@ -108,24 +105,6 @@ function App() {
       .then(data => {
         if (Array.isArray(data)) {
           setAllEvents(data);
-          
-          // Calculate distance range on load/search
-          const distances = data.map(e => e.cosine_distance).filter(d => d !== undefined && d !== null);
-          
-          if (distances.length > 0) {
-            const min = Math.min(...distances);
-            const max = Math.max(...distances);
-            const minRounded = Math.floor(min * 100) / 100;
-            const maxRounded = Math.ceil((max + 0.05) * 100) / 100;
-            
-            setDistanceRange({ min: minRounded, max: maxRounded });
-            
-            // Set slider to max available distance initially so all events match
-            setMaxDistanceFilter(maxRounded);
-          } else {
-             setDistanceRange({ min: 0.0, max: 2.0 });
-             setMaxDistanceFilter(2.0);
-          }
         } else {
           console.error("Received non-array data:", data);
           setAllEvents([]);
@@ -174,18 +153,11 @@ function App() {
         }
       }
       
-      // 3. Match Distance Filter (Cosine Distance)
-      const distance = event.cosine_distance;
-      // Filter out events that exceed max distance if set < 1.0 (or default max)
-      if (distance !== undefined && distance !== null) {
-          if (distance > maxDistanceFilter) return false;
-      }
-
       return true;
     });
     
     setFilteredEvents(filtered);
-  }, [allEvents, selectedCityIndex, cities, selectedFilters.showPaid, maxDistanceFilter]);
+  }, [allEvents, selectedCityIndex, cities, selectedFilters.showPaid]);
 
   // Filter events client-side based on Date/Weekday selection
   const visibleEvents = React.useMemo(() => {
@@ -362,12 +334,6 @@ function App() {
                   selectedFilters={selectedFilters}
                   onFilterChange={handleFilterChange}
                   topicOptions={topicOptions.filter(t => t.label && t.label !== 'nan' && t.label !== 'none')}
-                />
-                
-                <MatchSlider 
-                    maxDistance={maxDistanceFilter} 
-                    setMaxDistance={setMaxDistanceFilter} 
-                    range={distanceRange}
                 />
                 
                 <DayPicker 
