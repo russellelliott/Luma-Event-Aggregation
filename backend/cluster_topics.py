@@ -72,6 +72,8 @@ CUSTOM_CLUSTER_STOP_WORDS = {
     "best",
     "oro",
     "her",
+    "taiwan",
+    "limited", "hosts", "around",
 
     # 6. DOCUMENT META & GEOGRAPHY (Data artifact noise)
     "https", "com", "www", "io", "website", "post", "link", "information",
