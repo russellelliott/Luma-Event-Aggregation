@@ -72,6 +72,50 @@ def clean_nans(data):
         return None  # Convert NaN to JSON-compliant null
     return data
 
+
+def get_cosine_distance_sort_value(event):
+    """Normalize cosine_distance so sorting never compares mixed types."""
+    value = event.get('cosine_distance') if isinstance(event, dict) else None
+    if value is None:
+        return float('inf')
+    try:
+        numeric_value = float(value)
+        if math.isnan(numeric_value):
+            return float('inf')
+        return numeric_value
+    except (TypeError, ValueError):
+        return float('inf')
+
+
+def get_start_time_sort_value(event):
+    """Normalize start_at into a sortable numeric timestamp."""
+    start_at = event.get('start_at') if isinstance(event, dict) else None
+    if not start_at and isinstance(event.get('event'), dict):
+        start_at = event['event'].get('start_at')
+
+    if start_at is None:
+        return float('inf')
+
+    if isinstance(start_at, (int, float)):
+        try:
+            numeric_value = float(start_at)
+            if math.isnan(numeric_value):
+                return float('inf')
+            return numeric_value
+        except (TypeError, ValueError):
+            return float('inf')
+
+    if isinstance(start_at, str):
+        normalized = start_at.strip()
+        if not normalized:
+            return float('inf')
+        try:
+            return datetime.fromisoformat(normalized.replace('Z', '+00:00')).timestamp()
+        except ValueError:
+            return float('inf')
+
+    return float('inf')
+
 def enrich_events_with_distance(events):
     """Enrich a list of events with distance info from CITY_SUMMARY_DF."""
     if CITY_SUMMARY_DF is None:
@@ -199,14 +243,9 @@ def get_all_events(
         # If query is present, sort by cosine_distance (relevance) ascending
         # Otherwise sort by start_at
         if query and query.strip():
-             response_events.sort(key=lambda x: x.get('cosine_distance') if x.get('cosine_distance') is not None else float('inf'))
+               response_events.sort(key=get_cosine_distance_sort_value)
         else:
-            def get_start_time(e):
-                start_at = e.get('start_at')
-                if not start_at and isinstance(e.get('event'), dict):
-                    start_at = e['event'].get('start_at')
-                return start_at or ""
-            response_events.sort(key=get_start_time)
+            response_events.sort(key=get_start_time_sort_value)
 
         return clean_nans(convert_to_serializable(response_events))
     except Exception as e:
@@ -274,14 +313,7 @@ def get_events(
         response_events = enrich_events_with_distance(response_events)
 
         # Sort by start_at
-        def get_start_time(e):
-            # Try to get start_at from top level or nested event
-            start_at = e.get('start_at')
-            if not start_at and isinstance(e.get('event'), dict):
-                start_at = e['event'].get('start_at')
-            return start_at or ""
-        
-        response_events.sort(key=get_start_time)
+        response_events.sort(key=get_start_time_sort_value)
             
         return clean_nans(convert_to_serializable(response_events))
     except Exception as e:
