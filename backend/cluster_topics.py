@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 import lancedb
 import pandas as pd
@@ -34,6 +35,14 @@ def build_topic_label(topic_model, topic_id):
     if not top_terms:
         return f"Topic {topic_id}"
     return " / ".join(top_terms)
+
+
+def backup_events_table(db, events_df):
+    timestamp = int(datetime.now().timestamp())
+    backup_name = f"events_backup_before_clustering_{timestamp}"
+    db.create_table(backup_name, data=events_df.to_dict("records"), mode="overwrite")
+    print(f"Created backup table: {backup_name}")
+    return backup_name
 
 
 def cluster_event_topics(min_topic_size=8):
@@ -86,6 +95,8 @@ def cluster_event_topics(min_topic_size=8):
     df["topic_id"] = topics
     df["topic_label"] = labels
     df["topic_color"] = colors
+
+    backup_events_table(db, table.to_pandas())
 
     db.create_table("events", data=df.to_dict("records"), mode="overwrite")
 
