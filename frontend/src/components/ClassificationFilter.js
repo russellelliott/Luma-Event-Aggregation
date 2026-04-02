@@ -44,8 +44,8 @@ export default function ClassificationFilter({ selectedFilters, onFilterChange, 
           className={`
             flex items-center justify-center gap-2 p-2 rounded-lg border transition-all text-xs font-medium h-10
             ${selectedFilters.showPaid
-              ? 'bg-green-50 text-green-700 border-green-200'
-              : 'bg-white text-gray-500 hover:bg-gray-50 border-gray-200'
+              ? 'bg-purple-50 text-purple-700 border-purple-200'
+              : 'bg-green-50 text-green-700 border-green-200'
             }
           `}
         >
