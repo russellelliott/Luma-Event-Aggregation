@@ -68,11 +68,14 @@ export default function ClassificationFilter({ selectedFilters, onFilterChange, 
               className={`
                 px-2.5 py-1 rounded-md text-xs font-medium border transition-all
                 ${selectedFilters.topicLabels?.includes(topic.label)
-                  ? 'bg-blue-100 text-blue-700 border-blue-200'
+                  ? ''
                   : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
                 }
               `}
               style={{
+                backgroundColor: selectedFilters.topicLabels?.includes(topic.label)
+                  ? `${topic.color}1F`
+                  : undefined,
                 borderColor: selectedFilters.topicLabels?.includes(topic.label) ? topic.color : undefined,
                 color: selectedFilters.topicLabels?.includes(topic.label) ? topic.color : undefined
               }}
