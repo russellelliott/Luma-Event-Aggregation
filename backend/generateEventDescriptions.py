@@ -71,6 +71,25 @@ def _to_text_or_none(value):
     return str(value)
 
 
+def _extract_city_from_event_info(event_info):
+    address = event_info.get("address") if isinstance(event_info.get("address"), dict) else {}
+    city = address.get("addressLocality") or address.get("locality") or address.get("city")
+    region = address.get("addressRegion") or address.get("region") or address.get("state")
+
+    if city and region:
+        return f"{city}, {region}"
+    if city:
+        return city
+
+    location_name = event_info.get("location_name")
+    if isinstance(location_name, str):
+        cleaned = location_name.strip()
+        if cleaned and cleaned not in {"Register to See Address", "Online"}:
+            return cleaned
+
+    return None
+
+
 def normalize_event_for_storage(event_entry):
     coordinates = event_entry.get("coordinates") if isinstance(event_entry.get("coordinates"), dict) else {}
 
@@ -225,6 +244,17 @@ def generate_descriptions_for_all_events(events, delay=1.0, db_path=None):
                 error_count += 1
                 continue
 
+            response_description = event_info.get("description")
+            response_city = _extract_city_from_event_info(event_info)
+            response_lat = event_info.get("latitude")
+            response_lng = event_info.get("longitude")
+            print("  Response data check:")
+            print(f"    - description_present: {bool(response_description)}")
+            print(f"    - description_length: {len(response_description) if isinstance(response_description, str) else 0}")
+            print(f"    - city_extracted: {response_city}")
+            print(f"    - latitude: {response_lat}")
+            print(f"    - longitude: {response_lng}")
+
             updated_count = 0
 
             if "description" in event_info and event_info["description"] and not has_description:
@@ -239,6 +269,15 @@ def generate_descriptions_for_all_events(events, delay=1.0, db_path=None):
                     event_entry["coordinates"] = {"latitude": lat, "longitude": lng}
                     updated_count += 1
                     print(f"  ✓ Coordinates added ({lat}, {lng})")
+
+            if not has_city:
+                extracted_city = _extract_city_from_event_info(event_info)
+                if extracted_city:
+                    event_entry["city"] = extracted_city
+                    updated_count += 1
+                    print(f"  ✓ City added ({extracted_city})")
+                else:
+                    print("  ⚠️  No city extracted from response")
 
             if "pricing" in event_info and event_info["pricing"]:
                 event_entry["pricing"] = event_info["pricing"]
