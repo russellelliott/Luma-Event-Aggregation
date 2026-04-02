@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Home, Plus, X, Loader, LayoutList, Layers } from 'lucide-react';
-import DistanceSlider from './components/DistanceSlider';
 import ClassificationFilter from './components/ClassificationFilter';
 import MultiDayCalendar from './components/MultiDayCalendar';
 import DayPicker from './components/DayPicker';
@@ -30,8 +29,6 @@ const Modal = ({ isOpen, onClose, title, children }) => {
 };
 
 function App() {
-  const [cities, setCities] = useState([]);
-  const [selectedCityIndex, setSelectedCityIndex] = useState(0);
   const [selectedFilters, setSelectedFilters] = useState({
     topicLabels: [],
     bookmarked: false,
@@ -99,13 +96,6 @@ function App() {
   }, [searchQuery]);
 
   useEffect(() => {
-    fetch('http://localhost:8001/cities')
-      .then(res => res.json())
-      .then(data => {
-        setCities(data);
-      })
-      .catch(err => console.error('Error fetching cities:', err));
-
     fetch('http://localhost:8001/topics')
       .then(res => res.json())
       .then(data => {
@@ -156,23 +146,8 @@ function App() {
       return;
     }
 
-    // Get max distance from current slider position (if cities exist)
-    let maxDistance = Infinity;
-    if (cities.length > 0) {
-      const cityIndex = Math.min(selectedCityIndex, cities.length - 1);
-      const citiesUpToSlider = cities.slice(0, cityIndex + 1);
-      maxDistance = Math.max(...citiesUpToSlider.map(c => c.distance_miles || 0));
-    }
-
     const filtered = allEvents.filter(event => {
-      // 1. Distance Filter (optional - only apply if cities exist)
-      const distanceInfo = event.distance_info;
-      if (cities.length > 0 && distanceInfo && typeof distanceInfo.distance_miles === 'number') {
-        if (distanceInfo.distance_miles > maxDistance) return false;
-      }
-      // If no cities or no distance_info, include the event anyway
-
-      // 2. Paid/Free Filter
+      // Paid/Free Filter
       // If showPaid is false, ONLY show Free events
       if (!selectedFilters.showPaid) {
         if (hasPaidPricing(event.pricing)) return false;
@@ -182,7 +157,7 @@ function App() {
     });
     
     setFilteredEvents(filtered);
-  }, [allEvents, selectedCityIndex, cities, selectedFilters.showPaid]);
+  }, [allEvents, selectedFilters.showPaid]);
 
   // Filter events client-side based on Date/Weekday selection
   const visibleEvents = React.useMemo(() => {
@@ -335,13 +310,6 @@ function App() {
                     </button>
                 </div>
             </div>
-
-            <DistanceSlider 
-              cities={cities}
-              selectedCityIndex={selectedCityIndex}
-              onCityChange={setSelectedCityIndex}
-              eventsCount={visibleEvents.length}
-            />
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
               {/* Sidebar - Filters */}
