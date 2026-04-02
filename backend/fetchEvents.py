@@ -40,6 +40,7 @@ from dotenv import load_dotenv
 import lancedb
 from sentence_transformers import SentenceTransformer
 import torch
+import pyarrow as pa
 from normalize_event import normalize_luma_event
 
 # Load environment variables from .env file
@@ -828,9 +829,12 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
         
         if "city_summary" in db.table_names():
             db.drop_table("city_summary")
-        
-        db.create_table("city_summary", data=city_summary_data)
-        print(f"✓ Saved city summary to LanceDB table 'city_summary'")
+
+        if city_summary_data:
+            db.create_table("city_summary", data=city_summary_data)
+            print(f"✓ Saved city summary to LanceDB table 'city_summary'")
+        else:
+            print("✓ No city summary rows to save")
 
     print(f"\n✓ All processing completed successfully!")
     return len(sorted_events)
