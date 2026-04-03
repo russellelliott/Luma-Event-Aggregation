@@ -85,6 +85,9 @@ CUSTOM_CLUSTER_STOP_WORDS = {
     "email", "linkedin", "instagram", "twitter", "follow", "visit", "check",
     "san", "francisco", "sf", "bay", "california", "valley", "silicon", "oakland",
     "palo", "alto", "menlo", "ca", "usa", "berkeley", "stanford", "leopard",
+
+    # 7. BRANDS & EXTRA CONNECTORS (Requested filtering)
+    "labs", "lab", "and", "vine", "vercel", "microsoft", "apple", "nvidia", "amd", "meaningful", "justworks", "great", "pre", "feel", "uzbekistan", "bros", "plastic", "och", "sentient", "iceburg",
 }
 
 
