@@ -75,7 +75,7 @@ CUSTOM_CLUSTER_STOP_WORDS = {
     "taiwan",
     "limited", "hosts", "around",
     "self", "governed", "vertical", "public", "series", "water",
-    "growthx", "bro", "tour", "stage",
+    "growthx", "bro", "tour", "stage", "these",
 
     # 6. DOCUMENT META & GEOGRAPHY (Data artifact noise)
     "https", "com", "www", "io", "website", "post", "link", "information",
