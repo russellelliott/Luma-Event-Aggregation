@@ -76,6 +76,7 @@ CUSTOM_CLUSTER_STOP_WORDS = {
     "limited", "hosts", "around",
     "self", "governed", "vertical", "public", "series", "water",
     "growthx", "bro", "tour", "stage", "these", "morgan", "help", "rural", "wants", "techequity", "including",
+    "bubbl", "stay", "fellow", "clay",
 
     # 6. DOCUMENT META & GEOGRAPHY (Data artifact noise)
     "https", "com", "www", "io", "website", "post", "link", "information",
