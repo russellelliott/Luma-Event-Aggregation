@@ -8,6 +8,12 @@ import AddEvent from './components/AddEvent';
 import SearchBar from './components/SearchBar';
 import './App.css';
 
+const isValidTopicLabel = (label) => {
+  if (typeof label !== 'string') return false;
+  const normalized = label.trim().toLowerCase();
+  return normalized !== '' && normalized !== 'nan' && normalized !== 'none';
+};
+
 // Simple Modal Component
 const Modal = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
@@ -38,6 +44,7 @@ function App() {
   const [selectedDates, setSelectedDates] = useState([]);
   const [selectedDays, setSelectedDays] = useState(new Set());
   const [allEvents, setAllEvents] = useState([]);
+  const [topicCountBaseEvents, setTopicCountBaseEvents] = useState([]);
   const [filteredEvents, setFilteredEvents] = useState([]);
   const [view, setView] = useState('home');
   const [isLoading, setIsLoading] = useState(false);
@@ -139,6 +146,34 @@ function App() {
 
   }, [selectedFilters.topicLabels, selectedFilters.bookmarked, searchQuery]); // Exclude selectedFilters.showPaid from fetch dep, handle on client
 
+  // Fetch events for topic counts without applying selected topic chips.
+  useEffect(() => {
+    const params = new URLSearchParams();
+
+    if (selectedFilters.bookmarked) {
+      params.append('bookmarked', 'true');
+    }
+
+    if (searchQuery) {
+      params.append('query', searchQuery);
+    }
+
+    fetch(`http://localhost:8001/events/all?${params.toString()}`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setTopicCountBaseEvents(data);
+        } else {
+          console.error("Received non-array topic count data:", data);
+          setTopicCountBaseEvents([]);
+        }
+      })
+      .catch(err => {
+        console.error('Error fetching topic count events:', err);
+        setTopicCountBaseEvents([]);
+      });
+  }, [selectedFilters.bookmarked, searchQuery]);
+
   // Filter events client-side
   useEffect(() => {
     if (allEvents.length === 0) {
@@ -186,6 +221,51 @@ function App() {
           return false;
       });
   }, [filteredEvents, selectedDates, selectedDays]);
+
+  const topicCountEvents = React.useMemo(() => {
+    if (selectedFilters.showPaid) {
+      return topicCountBaseEvents;
+    }
+    return topicCountBaseEvents.filter(event => !hasPaidPricing(event.pricing));
+  }, [topicCountBaseEvents, selectedFilters.showPaid]);
+
+  const displayTopicOptions = React.useMemo(() => {
+    const countByLabel = new Map();
+
+    topicCountEvents.forEach((event) => {
+      const label = event?.topic_label;
+      if (!isValidTopicLabel(label)) return;
+      countByLabel.set(label, (countByLabel.get(label) || 0) + 1);
+    });
+
+    const colorByLabel = new Map();
+    topicOptions.forEach((topic) => {
+      if (isValidTopicLabel(topic?.label)) {
+        colorByLabel.set(topic.label, topic.color || '#64748B');
+      }
+    });
+
+    topicCountEvents.forEach((event) => {
+      const label = event?.topic_label;
+      if (!isValidTopicLabel(label)) return;
+      if (!colorByLabel.has(label)) {
+        colorByLabel.set(label, event?.topic_color || '#64748B');
+      }
+    });
+
+    const labels = new Set([...colorByLabel.keys(), ...countByLabel.keys()]);
+
+    return Array.from(labels)
+      .map((label) => ({
+        label,
+        color: colorByLabel.get(label) || '#64748B',
+        count: countByLabel.get(label) || 0,
+      }))
+      .sort((a, b) => {
+        if (b.count !== a.count) return b.count - a.count;
+        return a.label.localeCompare(b.label);
+      });
+  }, [topicOptions, topicCountEvents]);
 
   const handleFilterChange = (category, values) => {
     setSelectedFilters(prev => ({
@@ -331,7 +411,7 @@ function App() {
                 <ClassificationFilter 
                   selectedFilters={selectedFilters}
                   onFilterChange={handleFilterChange}
-                  topicOptions={topicOptions.filter(t => t.label && t.label !== 'nan' && t.label !== 'none')}
+                  topicOptions={displayTopicOptions}
                 />
               </div>
             </div>
