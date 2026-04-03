@@ -313,8 +313,13 @@ function App() {
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
               {/* Sidebar - Filters */}
-              <div className="lg:col-span-8">
-                 <MultiDayCalendar 
+              <div className="lg:col-span-8 space-y-4">
+                <DayPicker 
+                  selectedDays={selectedDays}
+                  onDaysChange={setSelectedDays}
+                />
+
+                <MultiDayCalendar 
                   selectedDates={selectedDates}
                   onDatesChange={setSelectedDates}
                   events={filteredEvents}
@@ -327,11 +332,6 @@ function App() {
                   selectedFilters={selectedFilters}
                   onFilterChange={handleFilterChange}
                   topicOptions={topicOptions.filter(t => t.label && t.label !== 'nan' && t.label !== 'none')}
-                />
-                
-                <DayPicker 
-                  selectedDays={selectedDays}
-                  onDaysChange={setSelectedDays}
                 />
               </div>
             </div>
