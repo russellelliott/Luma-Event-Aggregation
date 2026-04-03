@@ -30,6 +30,7 @@ import aiohttp
 import json
 import os
 import math
+import re
 import uuid
 from pathlib import Path
 from datetime import datetime
@@ -303,6 +304,81 @@ def extract_event_slug(url):
         return text.lower()
 
     return None
+
+
+def slug_matches_db_url(slug, db_url):
+    """Return True when a response slug is present in a full database URL."""
+    if not slug or not db_url:
+        return False
+
+    slug_text = str(slug).strip().lower()
+    url_text = str(db_url).strip().lower()
+
+    if not slug_text or not url_text:
+        return False
+
+    # Match the slug as the last path segment inside the stored full URL.
+    pattern = rf"/(?:[^/?#]*/)?{re.escape(slug_text)}(?:[/?#]|$)"
+    return re.search(pattern, url_text) is not None
+
+
+def extract_db_slug_from_url(db_url):
+    """Extract the final slug from a stored full DB URL."""
+    if not db_url:
+        return None
+
+    url_text = str(db_url).strip().lower()
+    if not url_text:
+        return None
+
+    match = re.search(r"/(?:[^/?#]*/)?([^/?#]+)(?:[/?#]|$)", url_text)
+    if match:
+        return match.group(1)
+
+    return None
+
+
+def get_existing_db_urls(db):
+    """Load all stored URL values from the events table."""
+    table = db.open_table("events")
+    df = table.to_pandas()
+    if "url" not in df.columns:
+        return []
+
+    urls = []
+    for raw_url in df["url"].tolist():
+        if raw_url:
+            urls.append(str(raw_url).strip())
+    return urls
+
+
+def get_events_table_row_count(db):
+    """Return the exact row count for the events table."""
+    table = db.open_table("events")
+    try:
+        return int(table.count_rows())
+    except Exception:
+        return len(table.to_pandas())
+
+
+def slug_exists_in_db_urls(slug, db_urls):
+    """Regex check: does a fetched slug already exist in any stored DB URL?"""
+    if not slug or not db_urls:
+        return False
+
+    slug_text = str(slug).strip().lower()
+    if not slug_text:
+        return False
+
+    # Match slug as a full path segment to avoid partial-string false positives.
+    pattern = re.compile(rf"(?:^|/){re.escape(slug_text)}(?:[/?#]|$)")
+    for db_url in db_urls:
+        canonical = canonicalize_event_url(db_url)
+        if not canonical:
+            continue
+        if pattern.search(canonical.lower()):
+            return True
+    return False
 
 
 def deduplicate_events(events):
@@ -725,57 +801,64 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
     db = lancedb.connect(db_path)
     print(f"🗄️  Connected to LanceDB at {db_path}")
 
-    # Load existing events/URLs early so we can skip already-known events before
-    # expensive processing (enrichment, filtering, summary generation).
+    # Load existing rows and their URLs early so we can compare response slugs
+    # against the full URLs already stored in the database.
     existing_events = []
-    existing_urls = set()
-    existing_slugs = set()
+    existing_db_urls = []
+    existing_table_row_count = 0
+    existing_unique_db_urls_count = 0
+    existing_unique_db_slugs_count = 0
+    events_table_opened = False
 
-    if "events" in db.list_tables():
-        try:
-            tbl = db.open_table("events")
-            existing_df = tbl.to_pandas()
-            existing_events = existing_df.to_dict(orient='records')
+    try:
+        existing_table = db.open_table("events")
+        events_table_opened = True
+        existing_table_row_count = get_events_table_row_count(db)
+        existing_df = existing_table.to_pandas()
+        existing_events = existing_df.to_dict(orient="records")
 
-            # Clean NaNs from existing events (Pandas introduces NaNs)
-            def clean_nans(obj):
-                if isinstance(obj, float) and math.isnan(obj):
-                    return None
-                elif isinstance(obj, dict):
-                    return {k: clean_nans(v) for k, v in obj.items()}
-                elif isinstance(obj, list):
-                    return [clean_nans(v) for v in obj]
-                return obj
+        if "url" in existing_df.columns:
+            existing_db_urls = [
+                str(raw_url).strip()
+                for raw_url in existing_df["url"].tolist()
+                if raw_url and str(raw_url).strip()
+            ]
 
-            existing_events = [clean_nans(e) for e in existing_events]
-            existing_events = [normalize_luma_event(e) for e in existing_events]
+        canonical_existing_urls = {
+            canonical
+            for canonical in (canonicalize_event_url(url) for url in existing_db_urls)
+            if canonical
+        }
+        existing_unique_db_urls_count = len(canonical_existing_urls)
 
-            # Build existing URL and slug lookup sets from DB URL values.
-            if "url" in existing_df.columns:
-                for raw_url in existing_df["url"].tolist():
-                    canonical_url = canonicalize_event_url(raw_url)
-                    if canonical_url:
-                        existing_urls.add(canonical_url)
+        existing_unique_db_slugs_count = len({
+            slug
+            for slug in (extract_db_slug_from_url(url) for url in canonical_existing_urls)
+            if slug
+        })
 
-                    slug = extract_event_slug(raw_url)
-                    if slug:
-                        existing_slugs.add(slug)
+        # Clean NaNs from existing events (Pandas introduces NaNs)
+        def clean_nans(obj):
+            if isinstance(obj, float) and math.isnan(obj):
+                return None
+            elif isinstance(obj, dict):
+                return {k: clean_nans(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [clean_nans(v) for v in obj]
+            return obj
 
-            # Also build lookup sets from normalized existing events as fallback.
-            for event in existing_events:
-                canonical_url = canonicalize_event_url(get_event_url(event))
-                if canonical_url:
-                    existing_urls.add(canonical_url)
+        existing_events = [clean_nans(e) for e in existing_events]
+        existing_events = [normalize_luma_event(e) for e in existing_events]
 
-                slug = extract_event_slug(get_event_url(event))
-                if slug:
-                    existing_slugs.add(slug)
-
-            print(f"✓ Loaded {len(existing_events)} existing events from DB")
-            print(f"✓ Loaded {len(existing_urls)} canonical existing URLs")
-            print(f"✓ Loaded {len(existing_slugs)} existing slugs from DB URLs")
-        except Exception as e:
-            print(f"⚠️ Could not read existing data: {e}")
+        print("📦 Existing DB snapshot before fetch:")
+        print(f"  - Events table opened successfully: {events_table_opened}")
+        print(f"  - Exact row count in 'events': {existing_table_row_count}")
+        print(f"  - Non-empty URL values found in 'events': {len(existing_db_urls)}")
+        print(f"  - Unique canonical URLs in 'events': {existing_unique_db_urls_count}")
+        print(f"  - Unique slugs derived from those URLs: {existing_unique_db_slugs_count}")
+        print("  - Guarantee: any fetched event whose slug matches one of those URLs will be excluded before deduplication, enrichment, filtering, and save")
+    except Exception as e:
+        print(f"⚠️ Could not read existing data: {e}")
 
     # Create a single aiohttp session for all requests
     async with aiohttp.ClientSession() as session:
@@ -807,34 +890,57 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
         print(f"\n✓ Total events collected from all sources: {len(all_events)}")
         all_events = [normalize_luma_event(event) for event in all_events]
 
-        # Skip events whose slug/URL is already present in DB.
-        preexisting_skip_count = 0
-        unseen_events = []
+        # Build fetched slug list first, then regex-match against stored DB URLs.
+        fetched_slugs = []
+        for event in all_events:
+            slug = extract_event_slug(get_event_url(event))
+            if slug:
+                fetched_slugs.append(slug)
+
+        unique_fetched_slugs_count = len(set(fetched_slugs))
+        print(f"✓ Total fetched slug values extracted from responses: {len(fetched_slugs)}")
+        print(f"✓ Unique fetched slugs before DB filtering: {unique_fetched_slugs_count}")
+
+        # Keep only events whose slug is not already present in DB URLs.
+        skipped_existing_count = 0
+        unmatched_events = []
         new_slugs_to_process = []
-        new_slug_set = set()
+        seen_new_slugs = set()
+        duplicate_fetched_slug_count = 0
+        missing_slug_count = 0
 
         for event in all_events:
             event_slug = extract_event_slug(get_event_url(event))
-            canonical_url = canonicalize_event_url(get_event_url(event))
-
-            if (event_slug and event_slug in existing_slugs) or (
-                canonical_url and canonical_url in existing_urls
-            ):
-                preexisting_skip_count += 1
+            if not event_slug:
+                missing_slug_count += 1
                 continue
 
-            if event_slug and event_slug not in new_slug_set:
-                new_slug_set.add(event_slug)
-                new_slugs_to_process.append(event_slug)
+            if slug_exists_in_db_urls(event_slug, existing_db_urls):
+                skipped_existing_count += 1
+                continue
 
-            unseen_events.append(event)
+            if event_slug in seen_new_slugs:
+                duplicate_fetched_slug_count += 1
+                continue
 
-        all_events = unseen_events
-        print(
-            f"✓ Skipped {preexisting_skip_count} events already present in DB by slug/URL "
-            f"before processing"
+            seen_new_slugs.add(event_slug)
+            new_slugs_to_process.append(event_slug)
+            unmatched_events.append(event)
+
+        all_events = unmatched_events
+        print(f"✓ Skipped events already present in DB by URL slug regex match: {skipped_existing_count}")
+        print(f"✓ Skipped fetched duplicates with same slug in this run: {duplicate_fetched_slug_count}")
+        print(f"✓ Skipped fetched events with missing/invalid slug: {missing_slug_count}")
+        print(f"✓ New slugs to process (unique, not in DB): {len(new_slugs_to_process)}")
+        print(f"✓ Exact DB URL count protected from reprocessing: {len(existing_db_urls)}")
+
+        # Validation pass: there should be zero DB collisions after filtering.
+        still_colliding = sum(
+            1
+            for event in all_events
+            if slug_exists_in_db_urls(extract_event_slug(get_event_url(event)), existing_db_urls)
         )
-        print(f"✓ New slugs queued for processing: {len(new_slugs_to_process)}")
+        print(f"🔒 Validation - events still matching DB URLs after filtering: {still_colliding}")
         
         # Remove duplicate events based on api_id
         print("🔄 Removing duplicate events...")
@@ -919,40 +1025,25 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
         else:
             print("✓ No non-California events found")
 
-        # Filter fetched events to only include those not in DB
-        # (a defensive second pass in case URL canonicalization changed later).
-        new_events = []
-        skipped_count = 0
-        
-        for event in all_events:
-            event_slug = extract_event_slug(get_event_url(event))
-            canonical_url = canonicalize_event_url(get_event_url(event))
-            if (event_slug and event_slug in existing_slugs) or (
-                canonical_url and canonical_url in existing_urls
-            ):
-                skipped_count += 1
-                continue
-            new_events.append(event)
-            
-        total_skipped_existing = preexisting_skip_count + skipped_count
-        print(
-            f"✓ Found {len(new_events)} new events "
-            f"(skipped {total_skipped_existing} existing by slug/URL)"
-        )
+        print(f"✓ Remaining new events after DB slug match + dedupe + CA filter: {len(all_events)}")
 
         # Initialize fields for NEW events only
         print("📝 Initializing fields for new events...")
 
-        for event in new_events:
+        for event in all_events:
             # Initialize bookmark
             event['bookmarked'] = False
+            event['needs_description_fetch'] = True
 
             event.setdefault('topic_id', None)
             event.setdefault('topic_label', None)
             event.setdefault('topic_color', None)
 
+        for event in existing_events:
+            event.setdefault('needs_description_fetch', False)
+
         # Combine existing and new events
-        final_events = existing_events + new_events
+        final_events = existing_events + all_events
         
         # Sort events by start_at
         def sort_key(item):
@@ -960,16 +1051,18 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
             return dt if dt else datetime.min.replace(tzinfo=dt.tzinfo if dt else None)
             
         sorted_events = sorted(final_events, key=sort_key)
-        print(f"✓ Total events to save: {len(sorted_events)} (sorted by start time)")
+        print("💾 Save plan:")
+        print(f"  - Existing events retained from DB: {len(existing_events)}")
+        print(f"  - New events being added this run: {len(all_events)}")
+        print(f"  - Total events to save: {len(sorted_events)} (sorted by start time)")
 
         # Save to LanceDB
         print("💾 Saving events to LanceDB...")
         try:
             if "events" in db.list_tables():
                 print("  Overwriting existing 'events' table with updated list...")
-                db.drop_table("events")
             
-            db.create_table("events", data=sorted_events)
+            db.create_table("events", data=sorted_events, mode="overwrite")
             print(f"✓ Saved {len(sorted_events)} events to LanceDB table 'events'")
         except Exception as e:
             print(f"❌ Error saving to LanceDB: {e}")
@@ -984,11 +1077,8 @@ async def fetch_and_aggregate_events(slugs, calendar_configs, east, north, south
             for city, details in city_summary.items()
         ]
         
-        if "city_summary" in db.list_tables():
-            db.drop_table("city_summary")
-
         if city_summary_data:
-            db.create_table("city_summary", data=city_summary_data)
+            db.create_table("city_summary", data=city_summary_data, mode="overwrite")
             print(f"✓ Saved city summary to LanceDB table 'city_summary'")
         else:
             print("✓ No city summary rows to save")

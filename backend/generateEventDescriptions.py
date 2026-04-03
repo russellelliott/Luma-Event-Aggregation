@@ -1,6 +1,7 @@
 import json
 import os
 import traceback
+import math
 
 import lancedb
 import pyarrow as pa
@@ -41,6 +42,7 @@ def events_schema():
             pa.field("topic_label", pa.string()),
             pa.field("topic_color", pa.string()),
             pa.field("cosine_distance", pa.float64()),
+            pa.field("needs_description_fetch", pa.bool_()),
         ]
     )
 
@@ -50,7 +52,7 @@ def ensure_events_table_exists(db_path=None):
     if not os.path.exists(resolved_db_path):
         raise FileNotFoundError(f"LanceDB database not found at {resolved_db_path}")
     db = lancedb.connect(resolved_db_path)
-    if "events" not in db.list_tables():
+    if "events" not in db.table_names():
         print("'events' table is missing; it will be created when data is written.")
 
 
@@ -69,6 +71,22 @@ def _to_text_or_none(value):
         text = value.strip()
         return text if text else None
     return str(value)
+
+
+def _is_nan_value(value):
+    try:
+        return math.isnan(value)
+    except (TypeError, ValueError):
+        return False
+
+
+def _to_int_or_none(value):
+    if value is None or _is_nan_value(value):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _extract_city_from_event_info(event_info):
@@ -92,6 +110,8 @@ def _extract_city_from_event_info(event_info):
 
 def normalize_event_for_storage(event_entry):
     coordinates = event_entry.get("coordinates") if isinstance(event_entry.get("coordinates"), dict) else {}
+    latitude = coordinates.get("latitude")
+    longitude = coordinates.get("longitude")
 
     return {
         "id": _to_text_or_none(event_entry.get("id")),
@@ -104,14 +124,15 @@ def normalize_event_for_storage(event_entry):
         "pricing": normalize_pricing_for_storage(event_entry.get("pricing")),
         "city": _to_text_or_none(event_entry.get("city")),
         "coordinates": {
-            "latitude": coordinates.get("latitude"),
-            "longitude": coordinates.get("longitude"),
+            "latitude": None if _is_nan_value(latitude) else latitude,
+            "longitude": None if _is_nan_value(longitude) else longitude,
         },
         "bookmarked": bool(event_entry.get("bookmarked", False)),
-        "topic_id": event_entry.get("topic_id"),
+        "topic_id": _to_int_or_none(event_entry.get("topic_id")),
         "topic_label": _to_text_or_none(event_entry.get("topic_label")),
         "topic_color": _to_text_or_none(event_entry.get("topic_color")),
-        "cosine_distance": event_entry.get("cosine_distance"),
+        "cosine_distance": None if _is_nan_value(event_entry.get("cosine_distance")) else event_entry.get("cosine_distance"),
+        "needs_description_fetch": bool(event_entry.get("needs_description_fetch", False)),
     }
 
 
@@ -152,6 +173,7 @@ def build_events_table(events):
         pa.array([record["topic_label"] for record in normalized_events], type=pa.string()),
         pa.array([record["topic_color"] for record in normalized_events], type=pa.string()),
         pa.array([record["cosine_distance"] for record in normalized_events], type=pa.float64()),
+        pa.array([record["needs_description_fetch"] for record in normalized_events], type=pa.bool_()),
     ]
 
     field_names = [
@@ -170,6 +192,7 @@ def build_events_table(events):
         "topic_label",
         "topic_color",
         "cosine_distance",
+        "needs_description_fetch",
     ]
 
     return pa.Table.from_arrays(arrays, names=field_names)
@@ -186,6 +209,12 @@ def load_events_from_lancedb(db_path=None):
     return events
 
 
+def select_new_events(events):
+    new_events = [event for event in events if event.get("needs_description_fetch")]
+    print(f"📌 Events marked for description fetch: {len(new_events)}")
+    return new_events
+
+
 def save_events_to_lancedb(events, db_path=None):
     db_path = get_db_path(db_path)
 
@@ -197,39 +226,40 @@ def save_events_to_lancedb(events, db_path=None):
     db.create_table("events", data=events_table, mode="overwrite")
 
 
-def generate_descriptions_for_all_events(events, delay=1.0, db_path=None):
-    print(f"Processing {len(events)} events sequentially with {delay}s delay between requests...\n")
+def generate_descriptions_for_all_events(all_events, events_to_process=None, delay=1.0, db_path=None):
+    if events_to_process is None:
+        events_to_process = all_events
+
+    print(f"Processing {len(events_to_process)} events sequentially with {delay}s delay between requests...\n")
 
     processed_count = 0
     skipped_count = 0
+    already_complete_count = 0
+    missing_url_count = 0
     error_count = 0
 
-    for i, event_entry in enumerate(events):
+    for i, event_entry in enumerate(events_to_process):
         event_url = event_entry.get("url")
         event_name = event_entry.get("name", "Unknown Event")
 
         if not event_url:
-            print(f"[{i+1}/{len(events)}] Skipping: {event_name} (no URL found)")
+            # print(f"[{i+1}/{len(events_to_process)}] Skipping: {event_name} (no URL found)")
             event_entry["fetch_error"] = "No URL found"
             skipped_count += 1
-            continue
-
-        # Check if event has ALL required fields: description, city, AND coordinates
-        has_description = bool(event_entry.get("description"))
-        has_city = bool(event_entry.get("city"))
-        has_coordinates = (
-            event_entry.get("coordinates", {}).get("latitude") is not None
-            and event_entry.get("coordinates", {}).get("longitude") is not None
-        )
-
-        # Skip only if ALL fields are present
-        if has_description and has_city and has_coordinates:
-            print(f"[{i+1}/{len(events)}] Skipping: {event_name} (complete: description, city, coordinates)")
-            skipped_count += 1
+            missing_url_count += 1
             continue
 
         try:
-            print(f"[{i+1}/{len(events)}] Processing: {event_name}")
+            has_description = bool(event_entry.get("description"))
+            has_city = bool(event_entry.get("city"))
+            has_coordinates = (
+                event_entry.get("coordinates", {}).get("latitude") is not None
+                and event_entry.get("coordinates", {}).get("longitude") is not None
+            )
+            if has_description and has_city and has_coordinates:
+                already_complete_count += 1
+
+            print(f"[{i+1}/{len(events_to_process)}] Processing: {event_name}")
             if not has_description:
                 print(f"  - Missing: description")
             if not has_city:
@@ -289,8 +319,10 @@ def generate_descriptions_for_all_events(events, delay=1.0, db_path=None):
                 updated_count += 1
                 print(f"  ✓ Pricing added")
 
+            event_entry["needs_description_fetch"] = False
+
             if updated_count > 0:
-                save_events_to_lancedb(events, db_path=db_path)
+                save_events_to_lancedb(all_events, db_path=db_path)
                 print("  💾 Event updates written to LanceDB")
                 processed_count += 1
             else:
@@ -302,17 +334,20 @@ def generate_descriptions_for_all_events(events, delay=1.0, db_path=None):
             error_count += 1
 
     print(f"\n📊 Summary: {processed_count} processed, {skipped_count} skipped, {error_count} errors")
-    print(f"💾 Performing final safety save for all {len(events)} events...")
-    save_events_to_lancedb(events, db_path=db_path)
+    print(f"  - Already complete before fetch: {already_complete_count}")
+    print(f"  - Missing URL: {missing_url_count}")
+    print(f"💾 Performing final safety save for all {len(all_events)} events...")
+    save_events_to_lancedb(all_events, db_path=db_path)
     print("✓ Final save completed")
 
-    return events
+    return all_events
 
 
 if __name__ == '__main__':
     try:
         events = load_events_from_lancedb()
-        events_with_descriptions = generate_descriptions_for_all_events(events, delay=1.0)
+        events_to_process = select_new_events(events)
+        events_with_descriptions = generate_descriptions_for_all_events(events, events_to_process, delay=1.0)
         print(f"\n🎉 Successfully processed {len(events_with_descriptions)} events!")
     
     except FileNotFoundError as e:
