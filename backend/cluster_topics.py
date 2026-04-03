@@ -58,7 +58,7 @@ CUSTOM_CLUSTER_STOP_WORDS = {
     "tiat", "runway", "flybetter",
     "fyi", "slack", "members", "jepa", "lps", "femigrants", "immigrants", "european",
     "person", "east", "west", "north", "south",
-    "female", "immigrant", "wwdc", "swift", "meetup", "v11", "social", "connections",
+    "female", "immigrant", "wwdc", "swift", "meetup", "v11", "social", "connection", "connections",
     "conversations", "content",
     "group", "see", "humanx", "collective", "gathering",
     "make", "good", "non", "but", "german", "ontology", "flourishing",
