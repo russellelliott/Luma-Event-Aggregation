@@ -43,6 +43,7 @@ function App() {
   const [topicOptions, setTopicOptions] = useState([]);
   const [selectedDates, setSelectedDates] = useState([]);
   const [selectedDays, setSelectedDays] = useState(new Set());
+  const [bookmarkedCategoryFilterActive, setBookmarkedCategoryFilterActive] = useState(false);
   const [allEvents, setAllEvents] = useState([]);
   const [topicCountBaseEvents, setTopicCountBaseEvents] = useState([]);
   const [filteredEvents, setFilteredEvents] = useState([]);
@@ -112,39 +113,6 @@ function App() {
       })
       .catch(err => console.error('Error fetching topics:', err));
   }, []);
-
-  // Fetch all events once or when non-distance filters change
-  useEffect(() => {
-    const params = new URLSearchParams();
-    
-    // Add topics
-    selectedFilters.topicLabels.forEach(topic => params.append('topic', topic));
-
-    // Add bookmarked
-    if (selectedFilters.bookmarked) {
-      params.append('bookmarked', 'true');
-    }
-    
-    // Add search query
-    if (searchQuery) {
-      params.append('query', searchQuery);
-    }
-
-    setIsLoading(true);
-    fetch(`http://localhost:8001/events/all?${params.toString()}`)
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setAllEvents(data);
-        } else {
-          console.error("Received non-array data:", data);
-          setAllEvents([]);
-        }
-      })
-      .catch(err => console.error('Error fetching events:', err))
-      .finally(() => setIsLoading(false));
-
-  }, [selectedFilters.topicLabels, selectedFilters.bookmarked, searchQuery]); // Exclude selectedFilters.showPaid from fetch dep, handle on client
 
   // Fetch events for topic counts without applying selected topic chips.
   useEffect(() => {
@@ -266,6 +234,68 @@ function App() {
         return a.label.localeCompare(b.label);
       });
   }, [topicOptions, topicCountEvents]);
+
+  const bookmarkedTopicLabels = React.useMemo(() => {
+    const labels = new Set();
+
+    topicCountEvents.forEach((event) => {
+      if (!event?.bookmarked) return;
+
+      const label = event?.topic_label;
+      if (!isValidTopicLabel(label)) return;
+
+      labels.add(label);
+    });
+
+    return Array.from(labels).sort((a, b) => a.localeCompare(b));
+  }, [topicCountEvents]);
+
+  const effectiveTopicLabels = React.useMemo(() => {
+    const labels = new Set(selectedFilters.topicLabels);
+
+    if (bookmarkedCategoryFilterActive) {
+      bookmarkedTopicLabels.forEach((label) => labels.add(label));
+    }
+
+    return Array.from(labels);
+  }, [bookmarkedCategoryFilterActive, bookmarkedTopicLabels, selectedFilters.topicLabels]);
+
+  const handleBookmarkedCategoriesToggle = () => {
+    setBookmarkedCategoryFilterActive((current) => !current);
+  };
+
+  // Fetch all events once or when non-distance filters change
+  useEffect(() => {
+    const params = new URLSearchParams();
+    
+    // Add topics
+    effectiveTopicLabels.forEach(topic => params.append('topic', topic));
+
+    // Add bookmarked
+    if (selectedFilters.bookmarked) {
+      params.append('bookmarked', 'true');
+    }
+    
+    // Add search query
+    if (searchQuery) {
+      params.append('query', searchQuery);
+    }
+
+    setIsLoading(true);
+    fetch(`http://localhost:8001/events/all?${params.toString()}`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setAllEvents(data);
+        } else {
+          console.error("Received non-array data:", data);
+          setAllEvents([]);
+        }
+      })
+      .catch(err => console.error('Error fetching events:', err))
+      .finally(() => setIsLoading(false));
+
+  }, [effectiveTopicLabels, selectedFilters.bookmarked, searchQuery]); // Exclude selectedFilters.showPaid from fetch dep, handle on client
 
   const handleFilterChange = (category, values) => {
     setSelectedFilters(prev => ({
@@ -411,6 +441,9 @@ function App() {
                 <ClassificationFilter 
                   selectedFilters={selectedFilters}
                   onFilterChange={handleFilterChange}
+                  bookmarkedCategoriesActive={bookmarkedCategoryFilterActive}
+                  bookmarkedTopicLabels={bookmarkedTopicLabels}
+                  onBookmarkedCategoriesToggle={handleBookmarkedCategoriesToggle}
                   topicOptions={displayTopicOptions}
                 />
               </div>

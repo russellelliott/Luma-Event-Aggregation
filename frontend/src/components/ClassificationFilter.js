@@ -1,7 +1,14 @@
 import React from 'react';
 import { Tag, Bookmark, DollarSign } from 'lucide-react';
 
-export default function ClassificationFilter({ selectedFilters, onFilterChange, topicOptions }) {
+export default function ClassificationFilter({
+  selectedFilters,
+  onFilterChange,
+  topicOptions,
+  bookmarkedTopicLabels,
+  bookmarkedCategoriesActive,
+  onBookmarkedCategoriesToggle,
+}) {
   const handleToggle = (category, value) => {
     const currentValues = selectedFilters[category] || [];
     const newValues = currentValues.includes(value)
@@ -37,7 +44,7 @@ export default function ClassificationFilter({ selectedFilters, onFilterChange, 
           <Bookmark className={`w-3.5 h-3.5 ${selectedFilters.bookmarked ? 'fill-current' : ''}`} />
           Bookmarks Only
         </button>
-        
+
         {/* Paid Filter */}
         <button
           onClick={handlePaidToggle}
@@ -60,28 +67,57 @@ export default function ClassificationFilter({ selectedFilters, onFilterChange, 
           <Tag className="w-4 h-4 text-blue-600" />
           <h3 className="text-sm font-semibold text-gray-800">Description Clusters</h3>
         </div>
+        <button
+          onClick={onBookmarkedCategoriesToggle}
+          disabled={bookmarkedTopicLabels.length === 0}
+          className={`
+            w-full mb-2 flex items-center justify-between gap-2 p-2.5 rounded-lg border transition-all text-xs font-medium
+            ${bookmarkedCategoriesActive
+              ? 'bg-amber-50 text-amber-700 border-amber-200 shadow-sm ring-1 ring-amber-200/70'
+              : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border-gray-200'
+            }
+            ${bookmarkedTopicLabels.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}
+          `}
+          title={bookmarkedTopicLabels.length === 0 ? 'No bookmarked categories yet' : 'Select bookmarked categories'}
+        >
+          <span className="flex items-center gap-2 min-w-0">
+            <Bookmark className={`w-3.5 h-3.5 shrink-0 ${bookmarkedCategoriesActive ? 'fill-current' : ''}`} />
+            <span className="truncate">Bookmarked Categories</span>
+          </span>
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-inherit opacity-80">
+            {bookmarkedTopicLabels.length}
+          </span>
+        </button>
         <div className="flex flex-wrap gap-1.5">
           {topicOptions.map(topic => (
+            (() => {
+              const isBookmarkedCategory = bookmarkedCategoriesActive && bookmarkedTopicLabels.includes(topic.label);
+              const isSelected = selectedFilters.topicLabels?.includes(topic.label);
+              const shouldHighlight = isSelected || isBookmarkedCategory;
+
+              return (
             <button
               key={topic.label}
               onClick={() => handleToggle('topicLabels', topic.label)}
               className={`
                 px-2.5 py-1 rounded-md text-xs font-medium border transition-all
-                ${selectedFilters.topicLabels?.includes(topic.label)
-                  ? ''
+                ${shouldHighlight
+                  ? 'shadow-sm ring-1 ring-inset'
                   : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
                 }
               `}
               style={{
-                backgroundColor: selectedFilters.topicLabels?.includes(topic.label)
+                backgroundColor: shouldHighlight
                   ? `${topic.color}1F`
                   : undefined,
-                borderColor: selectedFilters.topicLabels?.includes(topic.label) ? topic.color : undefined,
-                color: selectedFilters.topicLabels?.includes(topic.label) ? topic.color : undefined
+                borderColor: shouldHighlight ? topic.color : undefined,
+                color: shouldHighlight ? topic.color : undefined
               }}
             >
               {topic.label} ({topic.count})
             </button>
+              );
+            })()
           ))}
           {topicOptions.length === 0 && (
             <span className="text-xs text-gray-400">No topic clusters yet. Run cluster_topics.py.</span>
