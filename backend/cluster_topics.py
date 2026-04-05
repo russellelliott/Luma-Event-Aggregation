@@ -87,7 +87,7 @@ CUSTOM_CLUSTER_STOP_WORDS = {
     "palo", "alto", "menlo", "ca", "usa", "berkeley", "stanford", "leopard",
 
     # 7. BRANDS & EXTRA CONNECTORS (Requested filtering)
-    "labs", "lab", "and", "vine", "vercel", "microsoft", "apple", "nvidia", "amd", "meaningful", "justworks", "great", "pre", "feel", "uzbekistan", "bros", "plastic", "och", "sentient", "iceburg", "encord", "full", "optivide", "mercury", "rho", "startx", "org", "heatmap", "media", "video", "invite", "host", "native", "hope", "anything", "tool", "tools", "shared", "member", "tba", "talent", "resilience", "grab", "idea", "ideas", "synthio", "day", "days", "practical", "hosting",
+    "labs", "lab", "and", "vine", "vercel", "microsoft", "apple", "nvidia", "amd", "meaningful", "justworks", "great", "pre", "feel", "uzbekistan", "bros", "plastic", "och", "sentient", "iceburg", "encord", "full", "optivide", "mercury", "rho", "startx", "org", "heatmap", "media", "video", "invite", "host", "native", "hope", "anything", "tool", "tools", "shared", "member", "tba", "talent", "resilience", "grab", "idea", "ideas", "synthio", "day", "days", "practical", "hosting", "talk", "talks", "looking", "questions",
 }
 
 
