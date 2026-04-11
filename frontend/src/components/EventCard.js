@@ -197,7 +197,7 @@ const EventCard = ({ events, onBookmark, onViewEvent, isSearching, viewMode }) =
 
   return (
     <div className="space-y-6">
-      <h2 className="text-3xl font-bold text-gray-900 border-b pb-2">Upcoming Events</h2>
+            <h2 className="text-2xl font-bold text-gray-900 border-b pb-2">Upcoming Events</h2>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {displayItems.map((item, index) => {
@@ -345,13 +345,13 @@ const SingleEventCardContent = ({ item, onBookmark, onViewEvent, isSearching }) 
 
             {/* Event Header - Title */}
             <div className="mb-3 pr-20">
-                <h3 className="text-lg font-semibold text-gray-900 line-clamp-2 leading-tight">
+                <h3 className="text-base font-semibold text-gray-900 line-clamp-2 leading-tight">
                     {event.name || 'Untitled Event'}
                 </h3>
             </div>
 
             {/* Event Details Grid */}
-            <div className="grid grid-cols-1 gap-y-2 text-sm text-gray-600 mb-4">
+            <div className="grid grid-cols-1 gap-y-2 text-xs text-gray-600 mb-4">
                 
                 {/* Date & Time Combined */}
                 <div className="flex items-center space-x-2">

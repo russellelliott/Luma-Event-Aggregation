@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Plus, X, Loader, LayoutList, Layers } from 'lucide-react';
+import { Home, Plus, X, Loader, LayoutList, Layers, Calendar, ChevronDown } from 'lucide-react';
 import ClassificationFilter from './components/ClassificationFilter';
 import MultiDayCalendar from './components/MultiDayCalendar';
 import DayPicker from './components/DayPicker';
@@ -68,6 +68,7 @@ function App() {
   
   // View Mode: 'stacked' (grouped by day) or 'list' (flat list sorted by relevance)
   const [viewMode, setViewMode] = useState('stacked');
+  const [isDateFilterExpanded, setIsDateFilterExpanded] = useState(false);
 
   // Search State
   const [searchQuery, setSearchQuery] = useState('');
@@ -356,9 +357,9 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
-      <div className="container mx-auto px-4 py-8">
-        <header className="mb-8 relative flex items-center justify-center">
+    <div className={`h-screen bg-gradient-to-br from-blue-50 to-indigo-50 ${view === 'home' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+      <div className="w-full max-w-[1800px] mx-auto px-4 py-6 h-full flex flex-col overflow-hidden">
+        <header className="mb-8 relative flex items-center justify-center shrink-0">
           <button 
             onClick={() => setView('home')}
             className={`absolute left-0 p-3 rounded-full transition-colors ${
@@ -388,53 +389,35 @@ function App() {
 
         {view === 'home' && (
           <>
-            <div className="mb-6 flex flex-col md:flex-row gap-4 justify-center items-center">
-                <SearchBar onSearch={setSearchQuery} />
-                
-                {/* View Toggle */}
-                <div className="flex bg-white rounded-lg shadow-sm border border-gray-200 p-1">
-                    <button
-                        onClick={() => setViewMode('stacked')}
-                        className={`p-2 rounded-md transition-colors ${
-                            viewMode === 'stacked' 
-                                ? 'bg-indigo-100 text-indigo-700' 
-                                : 'text-gray-500 hover:bg-gray-50'
-                        }`}
-                        title="Group by Date"
-                    >
-                        <Layers className="w-5 h-5" />
-                    </button>
-                    <button
-                        onClick={() => setViewMode('list')}
-                        className={`p-2 rounded-md transition-colors ${
-                            viewMode === 'list' 
-                                ? 'bg-indigo-100 text-indigo-700' 
-                                : 'text-gray-500 hover:bg-gray-50'
-                        }`}
-                        title="List by Relevance"
-                    >
-                        <LayoutList className="w-5 h-5" />
-                    </button>
-                </div>
-            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start text-[13px] flex-1 min-h-0 overflow-hidden">
+              <aside className="lg:col-span-3 bg-white/70 border border-gray-200 rounded-xl p-4 space-y-4 h-full min-h-0 overflow-y-auto">
+                <button
+                  onClick={() => setIsDateFilterExpanded((current) => !current)}
+                  className="w-full flex items-center justify-between gap-2 p-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 transition-colors"
+                  aria-expanded={isDateFilterExpanded}
+                >
+                  <span className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+                    <Calendar className="w-4 h-4 text-indigo-600" />
+                    Filter by Date
+                  </span>
+                  <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isDateFilterExpanded ? 'rotate-180' : ''}`} />
+                </button>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-              {/* Sidebar - Filters */}
-              <div className="lg:col-span-8 space-y-4">
-                <DayPicker 
-                  selectedDays={selectedDays}
-                  onDaysChange={setSelectedDays}
-                />
+                {isDateFilterExpanded && (
+                  <div className="space-y-3">
+                    <DayPicker 
+                      selectedDays={selectedDays}
+                      onDaysChange={setSelectedDays}
+                    />
 
-                <MultiDayCalendar 
-                  selectedDates={selectedDates}
-                  onDatesChange={setSelectedDates}
-                  events={filteredEvents}
-                />
-              </div>
-              
-              {/* Event Classifications */}
-              <div className="lg:col-span-4 space-y-4">
+                    <MultiDayCalendar 
+                      selectedDates={selectedDates}
+                      onDatesChange={setSelectedDates}
+                      events={filteredEvents}
+                    />
+                  </div>
+                )}
+
                 <ClassificationFilter 
                   selectedFilters={selectedFilters}
                   onFilterChange={handleFilterChange}
@@ -443,35 +426,68 @@ function App() {
                   onBookmarkedCategoriesToggle={handleBookmarkedCategoriesToggle}
                   topicOptions={displayTopicOptions}
                 />
-              </div>
-            </div>
+              </aside>
 
-            <div className="mt-12">
-              {isLoading ? (
+              <section className="lg:col-span-9 h-full min-h-0 overflow-y-auto pr-1">
+                <div className="sticky top-0 z-20 bg-blue-50/90 backdrop-blur-sm pb-4 mb-4">
+                  <div className="flex flex-col md:flex-row gap-3 justify-between items-stretch md:items-center">
+                    <SearchBar onSearch={setSearchQuery} className="max-w-full md:max-w-xl" />
+
+                    <div className="flex bg-white rounded-lg shadow-sm border border-gray-200 p-1 self-end md:self-auto">
+                      <button
+                        onClick={() => setViewMode('stacked')}
+                        className={`p-2 rounded-md transition-colors ${
+                          viewMode === 'stacked' 
+                            ? 'bg-indigo-100 text-indigo-700' 
+                            : 'text-gray-500 hover:bg-gray-50'
+                        }`}
+                        title="Group by Date"
+                      >
+                        <Layers className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setViewMode('list')}
+                        className={`p-2 rounded-md transition-colors ${
+                          viewMode === 'list' 
+                            ? 'bg-indigo-100 text-indigo-700' 
+                            : 'text-gray-500 hover:bg-gray-50'
+                        }`}
+                        title="List by Relevance"
+                      >
+                        <LayoutList className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {isLoading ? (
                   <div className="flex justify-center items-center h-64">
                     <Loader className="w-12 h-12 animate-spin text-indigo-600" />
                   </div>
-              ) : (
+                ) : (
                   <EventCard 
                     events={visibleEvents} 
                     onBookmark={handleBookmark} 
                     onViewEvent={handleViewEvent}
-                    isSearching={!!searchQuery} // Pass search state
+                    isSearching={!!searchQuery}
                     viewMode={viewMode}
                   />
-              )}
+                )}
+              </section>
             </div>
           </>
         )}
 
         {view === 'add-event' && (
-          <AddEvent 
-            onEventAdded={(newEvent) => {
-              setAllEvents(prev => [...prev, newEvent]);
-              setView('home');
-            }}
-            onCancel={() => setView('home')}
-          />
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <AddEvent 
+              onEventAdded={(newEvent) => {
+                setAllEvents(prev => [...prev, newEvent]);
+                setView('home');
+              }}
+              onCancel={() => setView('home')}
+            />
+          </div>
         )}
         
         {/* Bookmark Prompt Modal */}
