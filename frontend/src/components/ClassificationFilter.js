@@ -88,7 +88,7 @@ export default function ClassificationFilter({
             {bookmarkedTopicLabels.length}
           </span>
         </button>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="columns-2 gap-2 [column-fill:balance]">
           {topicOptions.map(topic => (
             (() => {
               const isBookmarkedCategory = bookmarkedCategoriesActive && bookmarkedTopicLabels.includes(topic.label);
@@ -96,26 +96,33 @@ export default function ClassificationFilter({
               const shouldHighlight = isSelected || isBookmarkedCategory;
 
               return (
-            <button
-              key={topic.label}
-              onClick={() => handleToggle('topicLabels', topic.label)}
-              className={`
-                px-2.5 py-1 rounded-md text-[11px] font-medium border transition-all
-                ${shouldHighlight
-                  ? 'shadow-sm ring-1 ring-inset'
-                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                }
-              `}
-              style={{
-                backgroundColor: shouldHighlight
-                  ? `${topic.color}1F`
-                  : undefined,
-                borderColor: shouldHighlight ? topic.color : undefined,
-                color: shouldHighlight ? topic.color : undefined
-              }}
-            >
-              {topic.label} ({topic.count})
-            </button>
+                <button
+                  key={topic.label}
+                  onClick={() => handleToggle('topicLabels', topic.label)}
+                  className={`
+                    mb-1.5 flex w-full items-center justify-between gap-2 break-inside-avoid rounded-md border px-2.5 py-1 text-[11px] font-medium transition-all
+                    ${shouldHighlight
+                      ? 'shadow-sm ring-1 ring-inset'
+                      : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                    }
+                  `}
+                  style={{
+                    backgroundColor: shouldHighlight
+                      ? `${topic.color}1F`
+                      : undefined,
+                    borderColor: shouldHighlight ? topic.color : undefined,
+                    color: shouldHighlight ? topic.color : undefined
+                  }}
+                >
+                  <span className="min-w-0 truncate">{topic.label}</span>
+                  <span
+                    className="inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-semibold leading-none text-white"
+                    style={{ backgroundColor: topic.color }}
+                    aria-label={`${topic.count} events in ${topic.label}`}
+                  >
+                    {topic.count}
+                  </span>
+                </button>
               );
             })()
           ))}
