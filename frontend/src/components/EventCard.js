@@ -295,7 +295,25 @@ const SingleEventCardContent = ({ item, onBookmark, onViewEvent, isSearching }) 
     // Handle URL: if it doesn't start with http, assume it's a Luma slug
     const rawUrl = event.url || '';
     const eventUrl = rawUrl.startsWith('http') ? rawUrl : `https://lu.ma/${rawUrl}`;
-    const isLumaEvent = eventUrl.includes('lu.ma') || eventUrl.includes('luma.com');
+
+    const openEvent = () => {
+        if (onViewEvent) onViewEvent(item);
+        window.open(eventUrl, '_blank', 'noopener,noreferrer');
+    };
+
+    const handleCardClick = (e) => {
+        if (e.target.closest('button, a, input, textarea, select, label')) {
+            return;
+        }
+        openEvent();
+    };
+
+    const handleCardKeyDown = (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openEvent();
+        }
+    };
 
     // Similarity Score / Distance
     const rawDistance = item.cosine_distance;
@@ -305,7 +323,14 @@ const SingleEventCardContent = ({ item, onBookmark, onViewEvent, isSearching }) 
     const formattedDistance = hasDistance ? rawDistance.toFixed(3) : null;
 
     return (
-        <div className="relative h-full flex flex-col p-5">
+        <div
+            className="relative h-full flex flex-col p-5 cursor-pointer"
+            onClick={handleCardClick}
+            onKeyDown={handleCardKeyDown}
+            role="link"
+            tabIndex={0}
+            title="Open event"
+        >
             {/* Top Right Actions: Match Score + Bookmark + Price */}
             <div className="absolute top-4 right-4 z-10 flex flex-col items-end gap-1">
                 <div className="flex items-center gap-2">
@@ -392,23 +417,6 @@ const SingleEventCardContent = ({ item, onBookmark, onViewEvent, isSearching }) 
             {/* Event Description (Truncated) */}
                         <Description text={event.description} color={topicColor} />
 
-            {/* Action Button */}
-            <a 
-                href={eventUrl} 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                onClick={(e) => {
-                    // Trigger popup (does not prevent default, so link still opens)
-                    if (onViewEvent) onViewEvent(item);
-                }}
-                className={`mt-auto inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white focus:outline-none focus:ring-2 focus:ring-offset-2 transition duration-150 w-full ${
-                isLumaEvent
-                    ? 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500'
-                    : 'bg-orange-600 hover:bg-orange-700 focus:ring-orange-500'
-                }`}
-            >
-                {isLumaEvent ? 'View on Luma' : 'View External Event'}
-            </a>
             </div>
     );
 }
