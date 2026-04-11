@@ -8,10 +8,27 @@ import AddEvent from './components/AddEvent';
 import SearchBar from './components/SearchBar';
 import './App.css';
 
+let hasFetchedAllEvents = false;
+
 const isValidTopicLabel = (label) => {
   if (typeof label !== 'string') return false;
   const normalized = label.trim().toLowerCase();
   return normalized !== '' && normalized !== 'nan' && normalized !== 'none';
+};
+
+const getEventStartTimestamp = (event) => {
+  const startAt = event?.start_at ?? event?.event?.start_at;
+  if (!startAt) return null;
+
+  const parsedStart = new Date(startAt);
+  const timestamp = parsedStart.getTime();
+  return Number.isNaN(timestamp) ? null : timestamp;
+};
+
+const isEventStartAtOrBeforeCutoff = (event, cutoffTimestamp) => {
+  const startTimestamp = getEventStartTimestamp(event);
+  if (startTimestamp === null) return false;
+  return startTimestamp <= cutoffTimestamp;
 };
 
 // Simple Modal Component
@@ -45,10 +62,9 @@ function App() {
   const [selectedDays, setSelectedDays] = useState(new Set());
   const [bookmarkedCategoryFilterActive, setBookmarkedCategoryFilterActive] = useState(false);
   const [allEvents, setAllEvents] = useState([]);
-  const [topicCountBaseEvents, setTopicCountBaseEvents] = useState([]);
-  const [filteredEvents, setFilteredEvents] = useState([]);
   const [view, setView] = useState('home');
   const [isLoading, setIsLoading] = useState(false);
+  const [pageLoadTime] = useState(() => Date.now());
   
   // View Mode: 'stacked' (grouped by day) or 'list' (flat list sorted by relevance)
   const [viewMode, setViewMode] = useState('stacked');
@@ -94,6 +110,22 @@ function App() {
     });
   };
 
+  const matchesSearchQuery = (event, query) => {
+    const normalizedQuery = query.trim().toLowerCase();
+    if (!normalizedQuery) return true;
+
+    const searchableParts = [
+      event?.name,
+      event?.description,
+      event?.city,
+      event?.topic_label,
+    ]
+      .filter((value) => typeof value === 'string' && value.trim())
+      .map((value) => value.toLowerCase());
+
+    return searchableParts.some((value) => value.includes(normalizedQuery));
+  };
+
   // Effect to switch view mode based on search status
   useEffect(() => {
     if (searchQuery) {
@@ -114,93 +146,14 @@ function App() {
       .catch(err => console.error('Error fetching topics:', err));
   }, []);
 
-  // Fetch events for topic counts without applying selected topic chips.
-  useEffect(() => {
-    const params = new URLSearchParams();
-
-    if (selectedFilters.bookmarked) {
-      params.append('bookmarked', 'true');
-    }
-
-    if (searchQuery) {
-      params.append('query', searchQuery);
-    }
-
-    fetch(`http://localhost:8001/events/all?${params.toString()}`)
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setTopicCountBaseEvents(data);
-        } else {
-          console.error("Received non-array topic count data:", data);
-          setTopicCountBaseEvents([]);
-        }
-      })
-      .catch(err => {
-        console.error('Error fetching topic count events:', err);
-        setTopicCountBaseEvents([]);
-      });
-  }, [selectedFilters.bookmarked, searchQuery]);
-
-  // Filter events client-side
-  useEffect(() => {
-    if (allEvents.length === 0) {
-      setFilteredEvents([]);
-      return;
-    }
-
-    const filtered = allEvents.filter(event => {
-      // Paid/Free Filter
-      // If showPaid is false, ONLY show Free events
-      if (!selectedFilters.showPaid) {
-        if (hasPaidPricing(event.pricing)) return false;
-      }
-      
-      return true;
-    });
-    
-    setFilteredEvents(filtered);
-  }, [allEvents, selectedFilters.showPaid]);
-
-  // Filter events client-side based on Date/Weekday selection
-  const visibleEvents = React.useMemo(() => {
-      if (selectedDates.length === 0 && selectedDays.size === 0) {
-          return filteredEvents;
-      }
-      return filteredEvents.filter(item => {
-          if (!item.start_at) return false;
-          
-          const d = new Date(item.start_at);
-          
-          // Check specific dates
-          const dateMatch = selectedDates.some(sd => 
-              sd.getFullYear() === d.getFullYear() &&
-              sd.getMonth() === d.getMonth() &&
-              sd.getDate() === d.getDate()
-          );
-
-          if (dateMatch) return true;
-
-          // Check weekdays
-          // 'Mon', 'Tue' -> 'mon', 'tue'
-          const dayName = d.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
-          if (selectedDays.has(dayName)) return true;
-          
-          return false;
-      });
-  }, [filteredEvents, selectedDates, selectedDays]);
-
-  const topicCountEvents = React.useMemo(() => {
-    if (selectedFilters.showPaid) {
-      return topicCountBaseEvents;
-    }
-    return topicCountBaseEvents.filter(event => !hasPaidPricing(event.pricing));
-  }, [topicCountBaseEvents, selectedFilters.showPaid]);
+  const presentEvents = React.useMemo(() => {
+    return allEvents.filter((event) => !isEventStartAtOrBeforeCutoff(event, pageLoadTime));
+  }, [allEvents, pageLoadTime]);
 
   const displayTopicOptions = React.useMemo(() => {
     const countByLabel = new Map();
 
-    topicCountEvents.forEach((event) => {
+    presentEvents.forEach((event) => {
       const label = event?.topic_label;
       if (!isValidTopicLabel(label)) return;
       countByLabel.set(label, (countByLabel.get(label) || 0) + 1);
@@ -213,7 +166,7 @@ function App() {
       }
     });
 
-    topicCountEvents.forEach((event) => {
+    presentEvents.forEach((event) => {
       const label = event?.topic_label;
       if (!isValidTopicLabel(label)) return;
       if (!colorByLabel.has(label)) {
@@ -229,16 +182,17 @@ function App() {
         color: colorByLabel.get(label) || '#64748B',
         count: countByLabel.get(label) || 0,
       }))
+      .filter((topic) => topic.count > 0)
       .sort((a, b) => {
         if (b.count !== a.count) return b.count - a.count;
         return a.label.localeCompare(b.label);
       });
-  }, [topicOptions, topicCountEvents]);
+  }, [topicOptions, presentEvents]);
 
   const bookmarkedTopicLabels = React.useMemo(() => {
     const labels = new Set();
 
-    topicCountEvents.forEach((event) => {
+    presentEvents.forEach((event) => {
       if (!event?.bookmarked) return;
 
       const label = event?.topic_label;
@@ -248,7 +202,7 @@ function App() {
     });
 
     return Array.from(labels).sort((a, b) => a.localeCompare(b));
-  }, [topicCountEvents]);
+  }, [presentEvents]);
 
   const effectiveTopicLabels = React.useMemo(() => {
     const labels = new Set(selectedFilters.topicLabels);
@@ -264,22 +218,65 @@ function App() {
     setBookmarkedCategoryFilterActive((current) => !current);
   };
 
-  // Fetch all events once or when non-distance filters change
-  useEffect(() => {
-    const params = new URLSearchParams();
-    
-    // Add topics
-    effectiveTopicLabels.forEach(topic => params.append('topic', topic));
+  const filteredEvents = React.useMemo(() => {
+    return presentEvents.filter((event) => {
+      if (!matchesSearchQuery(event, searchQuery)) {
+        return false;
+      }
 
-    // Add bookmarked
-    if (selectedFilters.bookmarked) {
-      params.append('bookmarked', 'true');
+      if (!selectedFilters.showPaid && hasPaidPricing(event.pricing)) {
+        return false;
+      }
+
+      if (selectedFilters.bookmarked && !event.bookmarked) {
+        return false;
+      }
+
+      if (effectiveTopicLabels.length > 0 && !effectiveTopicLabels.includes(event.topic_label)) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [effectiveTopicLabels, presentEvents, searchQuery, selectedFilters.bookmarked, selectedFilters.showPaid]);
+
+    // Filter events client-side based on Date/Weekday selection
+    const visibleEvents = React.useMemo(() => {
+      if (selectedDates.length === 0 && selectedDays.size === 0) {
+        return filteredEvents;
+      }
+      return filteredEvents.filter(item => {
+        if (!item.start_at) return false;
+
+        const d = new Date(item.start_at);
+
+        // Check specific dates
+        const dateMatch = selectedDates.some(sd => 
+          sd.getFullYear() === d.getFullYear() &&
+          sd.getMonth() === d.getMonth() &&
+          sd.getDate() === d.getDate()
+        );
+
+        if (dateMatch) return true;
+
+        // Check weekdays
+        // 'Mon', 'Tue' -> 'mon', 'tue'
+        const dayName = d.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
+        if (selectedDays.has(dayName)) return true;
+
+        return false;
+      });
+    }, [filteredEvents, selectedDates, selectedDays]);
+
+  // Fetch all events once when the page is entered.
+  useEffect(() => {
+    if (hasFetchedAllEvents) {
+      return;
     }
-    
-    // Add search query
-    if (searchQuery) {
-      params.append('query', searchQuery);
-    }
+
+    hasFetchedAllEvents = true;
+
+    const params = new URLSearchParams();
 
     setIsLoading(true);
     fetch(`http://localhost:8001/events/all?${params.toString()}`)
@@ -295,7 +292,7 @@ function App() {
       .catch(err => console.error('Error fetching events:', err))
       .finally(() => setIsLoading(false));
 
-  }, [effectiveTopicLabels, selectedFilters.bookmarked, searchQuery]); // Exclude selectedFilters.showPaid from fetch dep, handle on client
+  }, []);
 
   const handleFilterChange = (category, values) => {
     setSelectedFilters(prev => ({

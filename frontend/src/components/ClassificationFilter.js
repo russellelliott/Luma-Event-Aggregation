@@ -120,7 +120,7 @@ export default function ClassificationFilter({
             })()
           ))}
           {topicOptions.length === 0 && (
-            <span className="text-xs text-gray-400">No topic clusters yet. Run cluster_topics.py.</span>
+            <span className="text-xs text-gray-400">No current description clusters to display.</span>
           )}
         </div>
       </div>

@@ -88,6 +88,9 @@ CUSTOM_CLUSTER_STOP_WORDS = {
 
     # 7. BRANDS & EXTRA CONNECTORS (Requested filtering)
     "labs", "lab", "and", "vine", "vercel", "microsoft", "apple", "nvidia", "amd", "meaningful", "justworks", "great", "pre", "feel", "uzbekistan", "bros", "plastic", "och", "sentient", "iceburg", "encord", "full", "optivide", "mercury", "rho", "startx", "org", "heatmap", "media", "video", "invite", "host", "native", "hope", "anything", "tool", "tools", "shared", "member", "tba", "talent", "resilience", "grab", "idea", "ideas", "synthio", "day", "days", "practical", "hosting", "talk", "talks", "looking", "questions", "health", "market", "support", "success", "start", "adelina", "sreday",
+
+    # 8. REQUESTED TOPIC NOISE
+    "abaka", "qigong", "prizes", "loma", "luma", "chat", "nix", "attendees", "off", "nebius",
 }
 
 
