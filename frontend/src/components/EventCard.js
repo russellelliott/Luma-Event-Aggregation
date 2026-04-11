@@ -199,7 +199,7 @@ const EventCard = ({ events, onBookmark, onViewEvent, isSearching, viewMode }) =
     <div className="space-y-6">
             <h2 className="text-2xl font-bold text-gray-900 border-b pb-2">Upcoming Events</h2>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {displayItems.map((item, index) => {
           if (item.type === 'stack') {
              return <EventStack key={`stack-${item.date}`} events={item.events} onBookmark={onBookmark} onViewEvent={onViewEvent} isSearching={isSearching} />;

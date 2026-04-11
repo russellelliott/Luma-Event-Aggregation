@@ -65,13 +65,13 @@ export default function ClassificationFilter({
       <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100">
         <div className="flex items-center gap-2 mb-2">
           <Tag className="w-4 h-4 text-blue-600" />
-          <h3 className="text-sm font-semibold text-gray-800">Description Clusters</h3>
+          <h3 className="text-xs font-semibold text-gray-800">Description Clusters</h3>
         </div>
         <button
           onClick={onBookmarkedCategoriesToggle}
           disabled={bookmarkedTopicLabels.length === 0}
           className={`
-            w-full mb-2 flex items-center justify-between gap-2 p-2.5 rounded-lg border transition-all text-xs font-medium
+            w-full mb-2 flex items-center justify-between gap-2 p-2.5 rounded-lg border transition-all text-[11px] font-medium
             ${bookmarkedCategoriesActive
               ? 'bg-amber-50 text-amber-700 border-amber-200 shadow-sm ring-1 ring-amber-200/70'
               : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border-gray-200'
@@ -100,7 +100,7 @@ export default function ClassificationFilter({
               key={topic.label}
               onClick={() => handleToggle('topicLabels', topic.label)}
               className={`
-                px-2.5 py-1 rounded-md text-xs font-medium border transition-all
+                px-2.5 py-1 rounded-md text-[11px] font-medium border transition-all
                 ${shouldHighlight
                   ? 'shadow-sm ring-1 ring-inset'
                   : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
@@ -120,7 +120,7 @@ export default function ClassificationFilter({
             })()
           ))}
           {topicOptions.length === 0 && (
-            <span className="text-xs text-gray-400">No current description clusters to display.</span>
+            <span className="text-[11px] text-gray-400">No current description clusters to display.</span>
           )}
         </div>
       </div>
