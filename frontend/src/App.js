@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Plus, X, Loader, LayoutList, Layers, Calendar, ChevronDown } from 'lucide-react';
+import { Home, Plus, X, Loader, LayoutList, Layers, Calendar } from 'lucide-react';
 import ClassificationFilter from './components/ClassificationFilter';
 import MultiDayCalendar from './components/MultiDayCalendar';
 import DayPicker from './components/DayPicker';
@@ -68,7 +68,6 @@ function App() {
   
   // View Mode: 'stacked' (grouped by day) or 'list' (flat list sorted by relevance)
   const [viewMode, setViewMode] = useState('stacked');
-  const [isDateFilterExpanded, setIsDateFilterExpanded] = useState(false);
 
   // Search State
   const [searchQuery, setSearchQuery] = useState('');
@@ -391,32 +390,23 @@ function App() {
           <>
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start text-[13px] flex-1 min-h-0 overflow-hidden">
               <aside className="lg:col-span-3 bg-white/70 border border-gray-200 rounded-xl p-4 space-y-4 h-full min-h-0 overflow-y-auto">
-                <button
-                  onClick={() => setIsDateFilterExpanded((current) => !current)}
-                  className="w-full flex items-center justify-between gap-2 p-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 transition-colors"
-                  aria-expanded={isDateFilterExpanded}
-                >
-                  <span className="flex items-center gap-2 text-sm font-semibold text-gray-800">
-                    <Calendar className="w-4 h-4 text-indigo-600" />
-                    Filter by Date
-                  </span>
-                  <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isDateFilterExpanded ? 'rotate-180' : ''}`} />
-                </button>
+                <div className="flex items-center gap-2 p-3 rounded-lg border border-gray-200 bg-white">
+                  <Calendar className="w-4 h-4 text-indigo-600" />
+                  <span className="text-sm font-semibold text-gray-800">Filter by Date</span>
+                </div>
 
-                {isDateFilterExpanded && (
-                  <div className="space-y-3">
-                    <DayPicker 
-                      selectedDays={selectedDays}
-                      onDaysChange={setSelectedDays}
-                    />
+                <div className="space-y-3">
+                  <DayPicker 
+                    selectedDays={selectedDays}
+                    onDaysChange={setSelectedDays}
+                  />
 
-                    <MultiDayCalendar 
-                      selectedDates={selectedDates}
-                      onDatesChange={setSelectedDates}
-                      events={filteredEvents}
-                    />
-                  </div>
-                )}
+                  <MultiDayCalendar 
+                    selectedDates={selectedDates}
+                    onDatesChange={setSelectedDates}
+                    events={filteredEvents}
+                  />
+                </div>
 
                 <ClassificationFilter 
                   selectedFilters={selectedFilters}
