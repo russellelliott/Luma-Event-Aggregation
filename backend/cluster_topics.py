@@ -92,6 +92,7 @@ CUSTOM_CLUSTER_STOP_WORDS = {
     # 8. REQUESTED TOPIC NOISE
     "abaka", "qigong", "prizes", "loma", "luma", "chat", "nix", "attendees", "off", "nebius",
     "fremont", "raj", "problem", "chief", "teams", "industry", "innovate", "weave", "built", "rednote",
+    "gray", "grey", "project", "google", "stripe", "app",
 }
 
 
