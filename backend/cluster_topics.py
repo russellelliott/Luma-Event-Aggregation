@@ -94,7 +94,7 @@ CUSTOM_CLUSTER_STOP_WORDS = {
     "fremont", "raj", "problem", "chief", "teams", "industry", "innovate", "weave", "built", "rednote",
     "gray", "grey", "project", "google", "stripe", "app", "jose", "codex",
     "small", "india", "way", "change", "design", "drawdown",
-    "switzerland", "win", "snowflake",
+    "switzerland", "win", "snowflake", "use", "touchdesigner",
 }
 
 
