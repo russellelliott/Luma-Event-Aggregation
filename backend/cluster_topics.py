@@ -97,7 +97,9 @@ CUSTOM_CLUSTER_STOP_WORDS = {
     "switzerland", "win", "snowflake", "use", "touchdesigner",
     "month", "presenting", "enjoy", "consent", "every", "asian", "helps", "receive",
     "teamohana", "apache", "deep", "long", "israel", "cleanai", "top", "club", "flow", "sessions",
-    "demo", "live", "workflow", "workflows",
+    "demo", "live", "workflow", "workflows", "technical", "test", "tests", "testing",
+    "karthee", "turkish", "asia", "step", "steps", "techstars", "gatteca",
+    "vitalist", "chance", "network",
 }
 
 

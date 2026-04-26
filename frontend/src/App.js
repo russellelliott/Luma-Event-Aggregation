@@ -150,45 +150,6 @@ function App() {
     return allEvents.filter((event) => !isEventStartAtOrBeforeCutoff(event, pageLoadTime));
   }, [allEvents, pageLoadTime]);
 
-  const displayTopicOptions = React.useMemo(() => {
-    const countByLabel = new Map();
-
-    presentEvents.forEach((event) => {
-      const label = event?.topic_label;
-      if (!isValidTopicLabel(label)) return;
-      countByLabel.set(label, (countByLabel.get(label) || 0) + 1);
-    });
-
-    const colorByLabel = new Map();
-    topicOptions.forEach((topic) => {
-      if (isValidTopicLabel(topic?.label)) {
-        colorByLabel.set(topic.label, topic.color || '#64748B');
-      }
-    });
-
-    presentEvents.forEach((event) => {
-      const label = event?.topic_label;
-      if (!isValidTopicLabel(label)) return;
-      if (!colorByLabel.has(label)) {
-        colorByLabel.set(label, event?.topic_color || '#64748B');
-      }
-    });
-
-    const labels = new Set([...colorByLabel.keys(), ...countByLabel.keys()]);
-
-    return Array.from(labels)
-      .map((label) => ({
-        label,
-        color: colorByLabel.get(label) || '#64748B',
-        count: countByLabel.get(label) || 0,
-      }))
-      .filter((topic) => topic.count > 0)
-      .sort((a, b) => {
-        if (b.count !== a.count) return b.count - a.count;
-        return a.label.localeCompare(b.label);
-      });
-  }, [topicOptions, presentEvents]);
-
   const bookmarkedTopicLabels = React.useMemo(() => {
     const labels = new Set();
 
@@ -267,6 +228,84 @@ function App() {
         return false;
       });
     }, [filteredEvents, selectedDates, selectedDays]);
+
+  // Compute topic options from events filtered by search/bookmarks/paid/date, but BEFORE topic selection
+  // This keeps all clusters visible in the sidebar even when one is selected
+  const eventsBeforeTopicFilter = React.useMemo(() => {
+    return presentEvents.filter((event) => {
+      if (!matchesSearchQuery(event, searchQuery)) {
+        return false;
+      }
+
+      if (!selectedFilters.showPaid && hasPaidPricing(event.pricing)) {
+        return false;
+      }
+
+      if (selectedFilters.bookmarked && !event.bookmarked) {
+        return false;
+      }
+
+      // Apply date/day filters (same logic as visibleEvents)
+      if (selectedDates.length === 0 && selectedDays.size === 0) {
+        return true;
+      }
+
+      if (!event.start_at) return false;
+
+      const d = new Date(event.start_at);
+
+      const dateMatch = selectedDates.some(sd => 
+        sd.getFullYear() === d.getFullYear() &&
+        sd.getMonth() === d.getMonth() &&
+        sd.getDate() === d.getDate()
+      );
+
+      if (dateMatch) return true;
+
+      const dayName = d.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
+      return selectedDays.has(dayName);
+    });
+  }, [presentEvents, searchQuery, selectedFilters.bookmarked, selectedFilters.showPaid, selectedDates, selectedDays]);
+
+  const displayTopicOptions = React.useMemo(() => {
+
+    const countByLabel = new Map();
+
+    eventsBeforeTopicFilter.forEach((event) => {
+      const label = event?.topic_label;
+      if (!isValidTopicLabel(label)) return;
+      countByLabel.set(label, (countByLabel.get(label) || 0) + 1);
+    });
+
+    const colorByLabel = new Map();
+    topicOptions.forEach((topic) => {
+      if (isValidTopicLabel(topic?.label)) {
+        colorByLabel.set(topic.label, topic.color || '#64748B');
+      }
+    });
+
+    eventsBeforeTopicFilter.forEach((event) => {
+      const label = event?.topic_label;
+      if (!isValidTopicLabel(label)) return;
+      if (!colorByLabel.has(label)) {
+        colorByLabel.set(label, event?.topic_color || '#64748B');
+      }
+    });
+
+    const labels = new Set([...colorByLabel.keys(), ...countByLabel.keys()]);
+
+    return Array.from(labels)
+      .map((label) => ({
+        label,
+        color: colorByLabel.get(label) || '#64748B',
+        count: countByLabel.get(label) || 0,
+      }))
+      .filter((topic) => topic.count > 0)
+      .sort((a, b) => {
+        if (b.count !== a.count) return b.count - a.count;
+        return a.label.localeCompare(b.label);
+      });
+  }, [topicOptions, eventsBeforeTopicFilter]);
 
   // Fetch all events once when the page is entered.
   useEffect(() => {
