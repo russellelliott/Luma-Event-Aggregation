@@ -100,6 +100,7 @@ CUSTOM_CLUSTER_STOP_WORDS = {
     "demo", "live", "workflow", "workflows", "technical", "test", "tests", "testing",
     "karthee", "turkish", "asia", "step", "steps", "techstars", "gatteca",
     "vitalist", "chance", "network", "local", "justin", "discussion", "production", "dark",
+    "openai", "gemma", "anthropic",
 }
 
 
