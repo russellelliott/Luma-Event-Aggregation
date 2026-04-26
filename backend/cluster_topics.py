@@ -99,7 +99,7 @@ CUSTOM_CLUSTER_STOP_WORDS = {
     "teamohana", "apache", "deep", "long", "israel", "cleanai", "top", "club", "flow", "sessions",
     "demo", "live", "workflow", "workflows", "technical", "test", "tests", "testing",
     "karthee", "turkish", "asia", "step", "steps", "techstars", "gatteca",
-    "vitalist", "chance", "network",
+    "vitalist", "chance", "network", "local", "justin", "discussion", "production", "dark",
 }
 
 
