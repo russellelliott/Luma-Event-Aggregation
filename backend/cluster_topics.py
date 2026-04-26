@@ -95,6 +95,9 @@ CUSTOM_CLUSTER_STOP_WORDS = {
     "gray", "grey", "project", "google", "stripe", "app", "jose", "codex",
     "small", "india", "way", "change", "design", "drawdown",
     "switzerland", "win", "snowflake", "use", "touchdesigner",
+    "month", "presenting", "enjoy", "consent", "every", "asian", "helps", "receive",
+    "teamohana", "apache", "deep", "long", "israel", "cleanai", "top", "club", "flow", "sessions",
+    "demo", "live", "workflow", "workflows",
 }
 
 
