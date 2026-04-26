@@ -100,7 +100,11 @@ CUSTOM_CLUSTER_STOP_WORDS = {
     "demo", "live", "workflow", "workflows", "technical", "test", "tests", "testing",
     "karthee", "turkish", "asia", "step", "steps", "techstars", "gatteca",
     "vitalist", "chance", "network", "local", "justin", "discussion", "production", "dark",
-    "openai", "gemma", "anthropic",
+    "openai", "gemma", "anthropic", "find", "salon", "clera", "farcaster", "launch",
+    "brand", "curious", "own", "code", "speaker", "speakers", "kafka", "computer", "them", "pixverse",
+    "development", "topics", "eterno", "cleantech", "japanese", "forge", "expansion", "state", "expo",
+    "demos", "react", "core", "everything", "edition", "guidelines", "iceberg", "streaming", "focused", "leading",
+    "company", "take", "openclaw",
 }
 
 
