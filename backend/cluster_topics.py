@@ -105,6 +105,7 @@ CUSTOM_CLUSTER_STOP_WORDS = {
     "development", "topics", "eterno", "cleantech", "japanese", "forge", "expansion", "state", "expo",
     "demos", "react", "core", "everything", "edition", "guidelines", "iceberg", "streaming", "focused", "leading",
     "company", "take", "openclaw",
+    "without", "ieee", "right", "api", "cloud", "lovable", "padel", "amplify", "mobile", "ltx", "profit", "layer", "unite",
 }
 
 
