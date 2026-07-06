@@ -106,7 +106,10 @@ CUSTOM_CLUSTER_STOP_WORDS = {
     "demos", "react", "core", "everything", "edition", "guidelines", "iceberg", "streaming", "focused", "leading",
     "company", "take", "openclaw",
     "without", "ieee", "right", "api", "cloud", "lovable", "padel", "amplify", "mobile", "ltx", "profit", "layer", "unite",
-    "aws", "claude", "ship", "decisions",
+    "aws", "claude", "ship", "decisions", "santa", "cruz", "weekly", "soma", "others", "inside", "toast", "table",
+    "gumloop", "hand", "hands", "summer", "spring", "fall", "winter", "para", "con", "evento", "users", "break",
+    "nan", "nerds", "sec", "beer", "tacos", "dev", "bbq", "obvious", "chalk", "led", "workato", "introstars",
+    "moscone", "clickhouse", "mom", "moms", "you'll", "show", "shipping"
 }
 
 
