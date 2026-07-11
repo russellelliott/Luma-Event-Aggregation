@@ -1,3 +1,4 @@
+import json
 import uuid
 
 
@@ -87,7 +88,7 @@ def normalize_luma_event(raw):
         "end_at": _to_text_or_none(base.get("end_at") or raw.get("end_at")),
         "description": _to_text_or_none(base.get("description") or raw.get("description")),
         "timezone": _to_text_or_none(base.get("timezone") or raw.get("timezone")) or "America/Los_Angeles",
-        "pricing": base.get("pricing") or raw.get("pricing"),
+        "pricing": json.dumps(base["pricing"]) if isinstance(base.get("pricing"), (list, dict)) else _to_text_or_none(base.get("pricing") or raw.get("pricing")),
         "city": _to_text_or_none(city),
         "coordinates": {
             "latitude": _to_float_or_none(latitude),
