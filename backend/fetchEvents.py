@@ -1143,6 +1143,10 @@ async def main():
         {
             "calendar_api_id": "cal-sCNm2eqHymNd4aq",
             "name": "playful-sincerity-events"
+        },
+        {
+            "calendar_api_id": "cal-n7ugivth1dxhYqE",
+            "name": "SVAIhub"
         }
     ]
 
