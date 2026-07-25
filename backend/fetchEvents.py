@@ -1147,6 +1147,10 @@ async def main():
         {
             "calendar_api_id": "cal-n7ugivth1dxhYqE",
             "name": "SVAIhub"
+        },
+        {
+            "calendar_api_id": "cal-hLCCVGkrtu5e9TP",
+            "name": "ai-builders-and-learners"
         }
     ]
 
